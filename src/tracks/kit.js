@@ -172,8 +172,27 @@ const BATTERIES = {
   },
 };
 
+/**
+ * Harmonise une note du crochet avec les notes de l'accord situées juste
+ * au-dessus.
+ *
+ * C'est la signature du lead de festival : la mélodie n'est pas jouée seule
+ * mais empilée en accord qui la suit note à note, ce qui la rend énorme sans
+ * rien changer à la ligne. Une note seule, même en supersaw, sonne mince à
+ * côté.
+ */
+function harmoniser(note, accord, voix = 3) {
+  const classes = accord.map((n) => ((n % 12) + 12) % 12);
+  const notes = [note];
+  for (let candidat = note + 1; candidat <= note + 12 && notes.length < voix; candidat++) {
+    if (classes.includes(((candidat % 12) + 12) % 12)) notes.push(candidat);
+  }
+  return notes;
+}
+
 export function motifEDM({
-  ACCORDS, BASSE, HOOK, CONTRE, sub = 0.5, ecart = 16, style = 'festival', batterie = 'festival',
+  ACCORDS, BASSE, HOOK, CONTRE, sub = 0.5, ecart = 16, style = 'festival',
+  batterie = 'festival', leadAccords = true,
 }) {
   const tropical = style === 'tropical';
   const hardstyle = style === 'hardstyle';
@@ -259,8 +278,17 @@ export function motifEDM({
           // Lame de bois doublée d'un souffle de supersaw : chaud, pas dur.
           s.marimba(t, note, duree * croche, { level: 0.4 });
           s.supersaw(t, note - 12, duree * croche * 0.9, { level: 0.05, ecart: 8, sub: 0, coupe: 3200 });
+        } else if (leadAccords) {
+          // Lead en accords : la mélodie est empilée avec les notes de
+          // l'accord au-dessus, et doublée une octave dessous pour le poids.
+          const empile = harmoniser(note, accord);
+          empile.forEach((n, i) => {
+            s.supersaw(t, n, duree * croche * 0.95, {
+              level: i === 0 ? 0.11 : 0.07, ecart, sub: i === 0 ? sub : 0, coupe: 7000,
+            });
+          });
+          s.supersaw(t, note - 12, duree * croche * 0.9, { level: 0.05, ecart: ecart * 0.6, sub: 0 });
         } else {
-          // Doublé à l'octave, c'est ce qui rend un thème inoubliable.
           s.supersaw(t, note, duree * croche * 0.95, { level: 0.13, ecart, sub, coupe: 7000 });
           s.supersaw(t, note - 12, duree * croche * 0.9, { level: 0.05, ecart: ecart * 0.6, sub: 0 });
         }
