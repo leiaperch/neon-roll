@@ -1,13 +1,31 @@
-import { SCALES, degree } from '../synth.js';
+import { GAMMES } from '../synth.js';
 
 /**
- * Face B, piste 4. Fa dièse mineur, quatre temps au sol. La piste répète les
- * mêmes figures en les décalant d'une colonne, comme le motif répète la même
- * mesure en changeant un filtre : la difficulté monte sans rien annoncer.
+ * Face B, piste 4. Fa dièse mineur, quatre temps au sol.
+ *
+ * La machine tient le rythme, mais les cordes tiennent la mélodie : le pont
+ * confie la progression à un violoncelle et un violon, et c'est eux qui
+ * ramènent le morceau après la rupture. La piste répète les mêmes figures en
+ * les décalant, comme le motif répète la même mesure en ouvrant un filtre.
  */
 
-const FS = 42;
-const GRILLE = [FS, FS, FS, FS, FS - 2, FS - 2, FS + 3, FS + 1];
+const BASSE = [42, 42, 38, 38, 45, 45, 40, 40];
+const ACCORDS = [
+  [61, 66, 69], [61, 66, 69], [62, 66, 69], [62, 66, 69],
+  [61, 64, 69], [61, 64, 69], [59, 64, 68], [59, 64, 68],
+];
+/** Rythme de basse : croches jouées, croches tues. Le silence fait le groove. */
+const RYTHME_BASSE = [0, 3, 4, 6, 7];
+/**
+ * La cellule d'aigus, une mesure. Elle ne change jamais de rythme : elle est
+ * seulement transposée quand l'accord bouge, et sa dernière note tombe une
+ * mesure sur quatre. C'est la répétition obstinée qui fait entrer le motif, pas
+ * la variation.
+ */
+const CELLULE = [[2, 78, 1], [3, 78, 1], [5, 81, 1], [6, 78, 2]];
+const CELLULE_FIN = [[2, 78, 1], [3, 78, 1], [5, 76, 1], [6, 73, 3]];
+/** Transposition par mesure, elle suit la basse. */
+const TRANSPO = [0, 0, -4, -4, 3, 3, -2, -2];
 
 export default {
   id: 'techno',
@@ -19,8 +37,11 @@ export default {
   bpm: 132,
   rowsPerBeat: 2,
   echoSteps: 3,
-  scale: SCALES.mineur,
+  mix: 1.3,
+  scale: GAMMES.mineur,
   scaleRoot: 78,
+  instruments: ['violon', 'violoncelle'],
+  percussions: ['charleston', 'charlestonOuvert', 'crash', 'caisseClaire'],
 
   palette: {
     skyTop: 0x000000,
@@ -193,7 +214,6 @@ export default {
     'faisceauxSerres', 'creux', 'boucle', 'sortie',
   ],
 
-  /** Piles d'enceintes et tours de structure, éclairées par en dessous. */
   decor(stage) {
     const { rows, box, neon, colX, TILE } = stage;
     const noir = this.palette.decor;
@@ -203,7 +223,6 @@ export default {
         const x = side * (colX(6) + 3.4);
         for (let i = 0; i < 3; i++) box(x, 1 + i * 2, z, 3.4, 1.9, 2.4, noir);
         neon(x, 0.02, z, 3.6, 0.1, 2.6, this.palette.accent);
-        // Membranes, en relief sur la face avant.
         for (let i = 0; i < 3; i++) box(x - side * 1.75, 1 + i * 2, z, 0.12, 1.3, 1.6, 0x1c1c26);
       }
     }
@@ -218,49 +237,66 @@ export default {
     }
   },
 
-  /** Grosse caisse au sol, clap décalé, basse acide et nappe de stab. */
   pattern(step, t, s) {
     const bar = Math.floor(step / 8);
     const inBar = step % 8;
-    const root = GRILLE[bar % 8];
+    const mesure = bar % 8;
+    const croche = s.stepDuration;
+    const basse = BASSE[mesure];
+    const accord = ACCORDS[mesure];
+
     const intro = bar < 4;
-    const pause = bar >= 20 && bar < 22;
+    const pont = bar >= 20 && bar < 22; // les cordes prennent la main
     const drop = bar >= 16 && bar < 20;
     const final = bar >= 32;
 
-    if (!pause) {
-      if (inBar % 2 === 0) s.kick(t, { level: 0.95, from: 175, to: 42, decay: 0.26 });
-      if (inBar % 2 === 1) s.hat(t, { level: intro ? 0.14 : 0.2, open: inBar % 4 === 3 });
-      if ((inBar === 4 || inBar === 12 % 8) && !intro) s.clap(t, { level: 0.3 });
+    // --- Machine ---
+    if (!pont) {
+      if (inBar % 2 === 0) s.kickMachine(t, { level: 0.9 });
+      if (inBar % 2 === 1) s.charleston(t, { level: intro ? 0.14 : 0.2, ouvert: inBar % 4 === 3 });
+      if (inBar === 4 && !intro) s.clap(t, { level: 0.28 });
+      if (inBar === 4 && (drop || final)) s.caisseClaire(t, { level: 0.22 });
     } else if (inBar % 2 === 1) {
-      s.hat(t, { level: 0.12, open: true });
+      s.charleston(t, { level: 0.1, ouvert: true });
+    }
+    if ((bar === 16 || bar === 22 || bar === 32) && inBar === 0) s.crash(t, { level: 0.3 });
+
+    // --- Basse : rythme troué, filtre qui s'ouvre sur la mesure ---
+    if (!intro && !pont && RYTHME_BASSE.includes(inBar)) {
+      const ouverture = 480 + Math.abs(4 - inBar) * 420 + (drop || final ? 1000 : 0);
+      const octave = inBar === 7 ? 12 : 0;
+      s.basse(t, basse - 12 + octave, croche * (inBar === 6 ? 1.6 : 0.85), {
+        level: 0.3, cutoff: ouverture, floor: 200, q: 9,
+      });
     }
 
-    // Basse acide : filtre qui s'ouvre puis se referme sur la mesure.
-    if (!intro && !pause) {
-      const ouverture = 500 + Math.abs(4 - inBar) * 420 + (drop || final ? 900 : 0);
-      const octave = inBar === 3 || inBar === 7 ? 12 : 0;
-      s.bass(t, root - 12 + octave, s.stepDuration * 0.9,
-        { level: 0.28, cutoff: ouverture, floor: 220, q: 9 });
+    // --- Cordes : nappe discrète, puis seules au pont ---
+    if (inBar === 0) {
+      if (pont) {
+        s.violoncelle(t, basse, croche * 8, { level: 0.36 });
+        s.violon(t, accord[1] + 12, croche * 8, { level: 0.3 });
+        s.violon(t, accord[2] + 12, croche * 8, { level: 0.22 });
+      } else if (!drop && !intro) {
+        s.violoncelle(t, basse, croche * 8, { level: 0.16 });
+      }
+    }
+    if (pont && inBar === 4) s.violon(t, accord[2] + 19, croche * 4, { level: 0.26 });
+
+    // --- Accord plaqué sur les contretemps ---
+    if (!intro && !pont && (inBar === 3 || inBar === 5)) {
+      s.stab(t, accord, croche * 0.5, { level: drop || final ? 0.11 : 0.075, echo: 0.4 });
     }
 
-    // Stab : un accord bref sur les contretemps, avec écho.
-    if ((drop || final || bar % 4 === 3) && (inBar === 3 || inBar === 5)) {
-      for (const semi of [0, 3, 7]) {
-        s.lead(t, root + 24 + semi, s.stepDuration * 0.5,
-          { level: 0.075, type: 'sawtooth', cutoff: 2600, echo: 0.4 });
+    // --- Cellule d'aigus, à partir du drop : toujours la même, transposée ---
+    if ((drop || bar >= 24) && !pont) {
+      const cellule = mesure === 7 ? CELLULE_FIN : CELLULE;
+      for (const [pas, note, duree] of cellule) {
+        if (pas === inBar) {
+          s.stab(t, [note + TRANSPO[mesure]], duree * croche * 0.8, { level: 0.09, echo: 0.5 });
+        }
       }
     }
 
-    // Nappe présente partout sauf pendant la rupture, où le bruit monte.
-    if (inBar === 0 && !drop) s.pad(t, root + 12, s.stepDuration * 8, { level: pause ? 0.12 : 0.06 });
-    if (pause && inBar === 0) s.riser(t, s.stepDuration * 8, { level: 0.14 });
-    if (bar === 22 && inBar === 0) s.crash(t, { level: 0.3 });
-
-    // Motif d'aigus qui n'apparaît qu'après la moitié du morceau.
-    if (bar >= 24 && inBar % 2 === 1) {
-      const midi = degree(SCALES.mineur, root + 36, (inBar + bar) % 5);
-      s.lead(t, midi, s.stepDuration * 0.4, { level: 0.05, type: 'square', cutoff: 4200, echo: 0.5 });
-    }
+    if (bar === 21 && inBar === 4) s.montee(t, croche * 12, { level: 0.13 });
   },
 };

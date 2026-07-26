@@ -256,7 +256,7 @@ export class Game {
       if (Math.abs(d.z - p.z) < PICKUP_RADIUS && Math.abs(d.x - p.x) < PICKUP_RADIUS) {
         d.taken = true;
         this.diamonds++;
-        this.synth.pickup(this.diamonds, this.track.scale, this.track.scaleRoot);
+        this.synth.ramassage(this.diamonds);
       }
     }
     for (const c of this.world.crowns) {
@@ -295,7 +295,7 @@ export class Game {
     if (cause !== 'trou') this.player.vy = 4;
     this.bestProgress = Math.max(this.bestProgress, this.progress);
     this.synth.stop();
-    this.synth.death();
+    this.synth.mort();
     this._persist(false);
   }
 

@@ -105,7 +105,7 @@ export function autoplay(game, world, input, track) {
   let t = 0;
   game.synth = {
     time: 0, muted: false, load() {}, stop() {}, setMuted() {},
-    pickup() {}, fanfare() {}, death() {},
+    ramassage() {}, fanfare() {}, mort() {},
     start(step) { t = step * rd; this.time = t; },
   };
   game.start(true);

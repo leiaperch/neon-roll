@@ -1,16 +1,67 @@
-import { SCALES, degree } from '../synth.js';
+import { GAMMES } from '../synth.js';
 
 /**
- * Face A, piste 1. Blues lent en mi, structure de douze mesures jouée deux
- * fois. Le tempo bas rend la piste large et roulante : c'est la piste
- * d'apprentissage, les tapis roulants y remplacent les pièges rapides.
+ * Face A, piste 1. Blues lent en mi, grille de douze mesures jouée deux fois.
+ *
+ * Rien n'est calculé : la ligne de contrebasse marche note à note vers
+ * l'accord suivant, le chant de l'harmonica est écrit mesure par mesure en
+ * question et réponse, et la guitare répond sur les contretemps de deux et
+ * quatre. Le ternaire vient d'un décalage d'un tiers de temps appliqué aux
+ * contretemps, sans toucher à la grille des lignes : le niveau reste binaire,
+ * la musique balance.
  */
 
-const E = 40, A = 45, B = 47;
 // Grille de douze mesures, une fondamentale par mesure.
-const GRILLE = [E, E, E, E, A, A, E, E, B, A, E, B];
-// Ligne de basse qui marche : degrés parcourus sur les quatre temps.
-const MARCHE = [0, 4, 7, 9];
+const GRILLE = [40, 40, 40, 40, 45, 45, 40, 40, 47, 45, 40, 47];
+
+/**
+ * Contrebasse. Une note par temps, écrite pour arriver sur la fondamentale
+ * suivante, avec les approches chromatiques de fin de mesure.
+ */
+const MARCHE = [
+  [40, 44, 47, 50], [52, 50, 47, 44], [40, 44, 47, 50], [52, 51, 49, 46],
+  [45, 49, 52, 55], [57, 55, 52, 49], [40, 44, 47, 50], [52, 50, 48, 46],
+  [47, 51, 54, 57], [45, 49, 52, 55], [40, 44, 47, 50], [47, 46, 45, 44],
+];
+
+/** Voicings sans fondamentale : tierce et septième suffisent à dire l'accord. */
+const COMP = { 40: [56, 62], 45: [61, 67], 47: [63, 69] };
+
+/**
+ * Le chant suit la forme du blues : une phrase, la même phrase, puis une
+ * conclusion. Le crochet de deux mesures est rejoué à l'identique sur le
+ * quatrième degré, et c'est cette répétition qui le rend mémorable. Les
+ * mesures vides sont voulues : c'est là que la guitare répond.
+ *
+ * Gamme de mi blues : mi sol la si bémol si ré. [croche, note, durée].
+ */
+const CROCHET = [
+  [[3, 71, 1], [4, 74, 1], [5, 76, 3]], // levée de deux notes puis note tenue
+  [[0, 76, 1], [1, 74, 1], [2, 71, 2], [6, 67, 2]], // la réponse redescend
+];
+
+/** Réponse de la guitare, dans les deux mesures où le chant se tait. */
+const REPONSE = [
+  [[2, 64, 1], [3, 67, 1], [4, 70, 1], [5, 71, 2]],
+  [[0, 67, 2], [4, 64, 2]],
+];
+
+/** Les quatre dernières mesures, les seules qui ne se répètent pas. */
+const CONCLUSION = [
+  [[0, 83, 2], [2, 81, 1], [3, 79, 1], [4, 76, 3]],
+  [[0, 74, 2], [2, 71, 2], [4, 67, 3]],
+  [[0, 64, 3], [4, 67, 1], [5, 64, 3]],
+  [[0, 71, 1], [1, 70, 1], [2, 69, 1], [3, 67, 1], [4, 64, 4]],
+];
+
+/** Mesure du cycle de douze vers la phrase jouée, et par quelle voix. */
+function phraseDe(mesure) {
+  if (mesure < 2) return { notes: CROCHET[mesure], chant: true };
+  if (mesure < 4) return { notes: REPONSE[mesure - 2], chant: false };
+  if (mesure < 6) return { notes: CROCHET[mesure - 4], chant: true };
+  if (mesure < 8) return { notes: REPONSE[mesure - 6], chant: false };
+  return { notes: CONCLUSION[mesure - 8], chant: true };
+}
 
 export default {
   id: 'blues',
@@ -22,8 +73,11 @@ export default {
   bpm: 84,
   rowsPerBeat: 2,
   echoSteps: 3,
-  scale: SCALES.blues,
+  mix: 1.0,
+  scale: GAMMES.blues,
   scaleRoot: 76,
+  instruments: ['harmonica', 'guitare', 'contrebasse', 'orgue'],
+  percussions: ['grosseCaisse', 'balai', 'caisseClaire', 'ride', 'crash'],
 
   palette: {
     skyTop: 0x140c20,
@@ -185,7 +239,6 @@ export default {
       const z = row * TILE;
       box(x, 3.4, z, 0.42, 6.8, 0.42, c);
       box(x, 6.1, z, 3.2, 0.28, 0.28, c);
-      // Le câble rejoint le poteau suivant du même côté.
       box(x, 5.9, z + 8 * TILE, 0.1, 0.1, 16 * TILE, c);
     }
     for (let row = 3; row < rows; row += 5) {
@@ -195,55 +248,48 @@ export default {
     }
   },
 
-  /**
-   * Batterie aux balais, contrebasse qui marche, guitare qui commente.
-   * Le ternaire est obtenu en repoussant les contretemps d'un tiers de temps,
-   * sans toucher à la grille des lignes : le niveau reste binaire, la musique
-   * balance.
-   */
   pattern(step, t, s) {
     const bar = Math.floor(step / 8);
     const inBar = step % 8;
     const beat = Math.floor(inBar / 2);
-    const offbeat = inBar % 2 === 1;
-    const swing = offbeat ? s.stepDuration / 3 : 0;
-    const tt = t + swing;
-    const root = GRILLE[bar % 12];
-    const cycle = Math.floor(bar / 12);
-    const dernier = bar >= 20;
+    const contretemps = inBar % 2 === 1;
+    const tt = contretemps ? t + s.stepDuration / 3 : t; // balancement ternaire
+    const mesure = bar % 12;
+    const tour = Math.floor(bar / 12);
+    const fondamentale = GRILLE[mesure];
+    const croche = s.stepDuration;
 
-    if (!offbeat) {
-      if (beat === 0 || beat === 2) s.kick(t, { level: 0.62, from: 130, to: 46 });
-      if (beat === 1 || beat === 3) s.brush(t, { level: 0.26 });
-      // Contrebasse : une note par temps, elle marche vers l'accord suivant.
-      const suivant = GRILLE[(bar + 1) % 12];
-      const note = beat === 3 && suivant !== root
-        ? suivant - 1 + (suivant > root ? 0 : 2) // approche chromatique
-        : root + MARCHE[beat];
-      s.upright(t, note, s.stepDuration * 1.7, { level: 0.32 });
-    }
-    s.ride(tt, { level: offbeat ? 0.07 : 0.11 });
-
-    // Accord de guitare sur les contretemps de deux et quatre.
-    if (offbeat && (beat === 1 || beat === 3)) {
-      for (const semi of [0, 4, 10]) {
-        s.lead(tt, root + 24 + semi, s.stepDuration * 0.8,
-          { level: 0.055, type: 'sawtooth', cutoff: 1700, echo: 0.12 });
+    // Batterie : caisse claire aux balais au premier tour, frappée au second.
+    if (!contretemps) {
+      if (beat === 0 || beat === 2) s.grosseCaisse(t, { level: 0.6 });
+      if (beat === 1 || beat === 3) {
+        if (tour === 0) s.balai(t, { level: 0.34 });
+        else s.caisseClaire(t, { level: 0.34 });
       }
+      s.contrebasse(t, MARCHE[mesure][beat], croche * 1.8, { level: 0.5 });
+    }
+    s.ride(tt, { level: contretemps ? 0.09 : 0.15 });
+    if (mesure === 0 && inBar === 0 && tour > 0) s.crash(t, { level: 0.24 });
+
+    // Guitare : accord sur les contretemps de deux et quatre.
+    if (contretemps && (beat === 1 || beat === 3)) {
+      s.accord('guitare', tt, COMP[fondamentale], croche * 1.1, { level: 0.16, gratte: 0.012 });
     }
 
-    // Orgue en tenue à partir du deuxième tour.
-    if (cycle >= 1 && inBar === 0) {
-      s.organ(t, root + 12, s.stepDuration * 8, { level: 0.055 });
-      s.organ(t, root + 19, s.stepDuration * 8, { level: 0.04 });
+    // Orgue : tenue par mesure, seulement au second tour.
+    if (tour > 0 && inBar === 0) {
+      s.orgue(t, fondamentale + 12, croche * 8, { level: 0.1 });
+      s.orgue(t, fondamentale + 22, croche * 8, { level: 0.07 });
     }
 
-    // Traits de guitare en fin de phrase, là où la grille respire.
-    const lick = [0, 2, 3, 2, 0, 5, 3, 0];
-    if ((bar % 4 === 3 || dernier) && inBar >= 2) {
-      const midi = degree(SCALES.blues, root + 24, lick[inBar] + (dernier ? 3 : 0));
-      s.guitar(tt, midi, s.stepDuration * 0.9, { level: 0.1, power: false });
+    // Le chant passe de l'harmonica à la guitare au second tour, une octave
+    // plus bas : même mélodie, autre voix, comme dans un vrai chorus.
+    const { notes, chant } = phraseDe(mesure);
+    for (const [pas, note, duree] of notes) {
+      if (pas !== inBar) continue;
+      const quand = pas % 2 === 1 ? t + croche / 3 : t;
+      if (chant && tour === 0) s.harmonica(quand, note, duree * croche, { level: 0.32 });
+      else s.electrique(quand, note - 12, duree * croche, { level: chant ? 0.26 : 0.2 });
     }
-    if (bar % 12 === 11 && inBar === 6) s.crash(t, { level: 0.16 });
   },
 };
