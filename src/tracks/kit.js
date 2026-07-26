@@ -96,7 +96,7 @@ const BATTERIES = {
     if (inBar % 2 === 0 && !c.coupe) {
       s.kickMachine(t, { level: 0.7, from: 150, to: 48, decay: 0.22, clic: 0.25, duck: 0.42 });
     }
-    if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: 0.22 });
+    if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: 0.16, longueur: 0.8 });
     // Shaker : deux coups par croche, c'est lui qui donne le balancement.
     if (!c.pont) {
       s.charleston(t, { level: 0.07, rate: 1.7 });
@@ -109,7 +109,7 @@ const BATTERIES = {
   house(s, t, inBar, croche, c) {
     if (inBar % 2 === 0 && !c.coupe) s.kickMachine(t, { level: c.drop ? 0.92 : 0.8 });
     if (inBar % 2 === 1) s.charleston(t, { level: 0.2, ouvert: true });
-    if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: c.drop ? 0.3 : 0.24 });
+    if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: c.drop ? 0.2 : 0.15 });
     if (c.drop) s.charleston(t + croche / 2, { level: 0.06, rate: 1.8 });
   },
 
@@ -117,7 +117,7 @@ const BATTERIES = {
   techno(s, t, inBar, croche, c) {
     if (inBar % 2 === 0 && !c.coupe) s.kickMachine(t, { level: 0.88 });
     if (inBar % 2 === 1) s.charleston(t, { level: 0.16 });
-    if (!c.intro && inBar === 6) s.clap(t, { level: 0.26 });
+    if (!c.intro && inBar === 6) s.clap(t, { level: 0.17, longueur: 0.7 });
     // Contretemps métallique sur les croches 3 et 5 : le grain du genre.
     if (c.drop && (inBar === 3 || inBar === 5)) s.caisseClaire(t, { level: 0.1, rate: 1.7 });
   },
@@ -126,15 +126,15 @@ const BATTERIES = {
   festival(s, t, inBar, croche, c) {
     if (inBar % 2 === 0 && !c.coupe) s.kickMachine(t, { level: c.drop ? 0.95 : 0.8 });
     if (inBar % 2 === 1) s.charleston(t, { level: c.intro ? 0.13 : 0.19, ouvert: inBar % 4 === 3 });
-    if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: c.drop ? 0.32 : 0.24 });
-    if (c.derniereMesure && inBar >= 6) s.tom(t, { aigu: inBar === 7, level: 0.34 });
+    if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: c.drop ? 0.21 : 0.15 });
+    if (c.derniereMesure && inBar >= 6) s.tom(t, { aigu: inBar === 7, level: 0.26 });
   },
 
   /** Trance : charleston ouvert sur tous les contretemps, roulis en montée. */
   trance(s, t, inBar, croche, c) {
     if (inBar % 2 === 0 && !c.coupe) s.kickMachine(t, { level: 0.9, from: 190, to: 44 });
     if (inBar % 2 === 1) s.charleston(t, { level: 0.21, ouvert: true });
-    if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: 0.26 });
+    if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: 0.18 });
     if (c.monte) s.charleston(t + croche / 2, { level: 0.1, rate: 1.6 });
   },
 
@@ -147,7 +147,12 @@ const BATTERIES = {
     if (!c.coupe && (inBar === 0 || inBar === 3 || inBar === 6)) {
       s.kickMachine(t, { level: 0.9, decay: 0.3 });
     }
-    if (!c.intro && inBar === 4) s.caisseClaire(t, { level: 0.42 });
+    // Claire de trap : courte et brillante, jouée plus haut que nature. Une
+    // claire acoustique pleine, avec son timbre qui traîne, sonne faux ici.
+    if (!c.intro && inBar === 4) {
+      s.caisseClaire(t, { level: 0.22, rate: 1.25 });
+      s.clap(t, { level: 0.12, longueur: 0.6 });
+    }
     // Charleston en doubles croches, avec un triolet de temps en temps.
     const debits = inBar === 5 ? 3 : 2;
     for (let i = 0; i < debits; i++) {
@@ -161,14 +166,19 @@ const BATTERIES = {
       s.kickMachine(t, { level: 0.95, from: 210, to: 46, decay: 0.16, queue: croche * 1.4, duck: 0.18 });
     }
     if (!c.drop && inBar % 2 === 1) s.charleston(t, { level: 0.14 });
-    if (!c.intro && inBar === 6 && !c.drop) s.clap(t, { level: 0.24 });
+    if (!c.intro && inBar === 6 && !c.drop) s.clap(t, { level: 0.16, longueur: 0.7 });
   },
 
   /** Big room : backbeat large et roulement de claire avant chaque drop. */
   bigroom(s, t, inBar, croche, c) {
     if (inBar % 2 === 0 && !c.coupe) s.kickMachine(t, { level: 0.95 });
     if (inBar % 2 === 1) s.charleston(t, { level: 0.17, ouvert: inBar === 7 });
-    if (!c.intro && (inBar === 2 || inBar === 6)) s.caisseClaire(t, { level: 0.34 });
+    // Clap devant, claire courte derrière juste pour le corps : en big room
+    // la claire acoustique seule sonne trop naturelle et prend trop de place.
+    if (!c.intro && (inBar === 2 || inBar === 6)) {
+      s.clap(t, { level: 0.2 });
+      s.caisseClaire(t, { level: 0.12, rate: 1.2 });
+    }
   },
 };
 
@@ -192,7 +202,7 @@ function harmoniser(note, accord, voix = 3) {
 
 export function motifEDM({
   ACCORDS, BASSE, HOOK, CONTRE, sub = 0.5, ecart = 16, style = 'festival',
-  batterie = 'festival', leadAccords = true,
+  batterie = 'festival', leadAccords = true, leadGrave = false, arpege = false,
 }) {
   const tropical = style === 'tropical';
   const hardstyle = style === 'hardstyle';
@@ -251,6 +261,18 @@ export function motifEDM({
       }
     }
 
+    // --- Arpège continu en doubles croches ---
+    // La techno mélodique tient sur ce mouvement perpétuel : la pulsation
+    // reste hypnotique, mais quelque chose avance en permanence dessous.
+    if (arpege && phase !== 'intro') {
+      for (let i = 0; i < 2; i++) {
+        const note = accord[(inBar * 2 + i) % accord.length] + (drop ? 12 : 0);
+        s.pincement(t + (i * croche) / 2, note, croche / 2, {
+          level: drop ? 0.09 : 0.06, ouverture: drop ? 5200 : 2400, fermeture: 500,
+        });
+      }
+    }
+
     // --- Accords ---
     if (drop) {
       // Nappe supersaw sur chaque temps : le mur de son du drop.
@@ -278,6 +300,15 @@ export function motifEDM({
           // Lame de bois doublée d'un souffle de supersaw : chaud, pas dur.
           s.marimba(t, note, duree * croche, { level: 0.4 });
           s.supersaw(t, note - 12, duree * croche * 0.9, { level: 0.05, ecart: 8, sub: 0, coupe: 3200 });
+        } else if (leadGrave) {
+          // Future house : le lead est dans le grave. C'est la basse qui porte
+          // la mélodie, avec un filtre résonant qui lui donne son mordant
+          // métallique, et un pincement court une octave au-dessus pour
+          // qu'elle reste lisible.
+          s.basse(t, note - 24, duree * croche * 0.8, {
+            level: 0.34, cutoff: 2600, floor: 320, q: 12,
+          });
+          s.pincement(t, note - 12, duree * croche * 0.6, { level: 0.1, ouverture: 4200 });
         } else if (leadAccords) {
           // Lead en accords : la mélodie est empilée avec les notes de
           // l'accord au-dessus, et doublée une octave dessous pour le poids.

@@ -42,9 +42,9 @@ export default piste({
   face: 'A',
   index: 2,
   title: 'Boule à Facettes',
-  genre: 'French house',
-  tagline: 'Quatre accords, un filtre, et rien à prouver.',
-  bpm: 118,
+  genre: 'Future house',
+  tagline: 'La mélodie est dans la basse, et elle mord.',
+  bpm: 125,
   rowsPerBeat: 2,
   echoSteps: 3,
   mix: 1.05,
@@ -88,5 +88,5 @@ export default piste({
     }
   },
 
-  pattern: motifEDM({ batterie: 'house', ACCORDS, BASSE, HOOK, CONTRE, ecart: 14 }),
+  pattern: motifEDM({ batterie: 'house', ACCORDS, BASSE, HOOK, CONTRE, ecart: 14, leadGrave: true }),
 });

@@ -43,7 +43,7 @@ export default piste({
   face: 'A',
   index: 3,
   title: 'Sous-sol, 4 h',
-  genre: 'Techno',
+  genre: 'Techno mélodique',
   tagline: 'La même mesure, jusqu’à ce qu’elle devienne autre chose.',
   bpm: 126,
   rowsPerBeat: 2,
@@ -89,5 +89,5 @@ export default piste({
     }
   },
 
-  pattern: motifEDM({ batterie: 'techno', ACCORDS, BASSE, HOOK, CONTRE, ecart: 18 }),
+  pattern: motifEDM({ batterie: 'techno', ACCORDS, BASSE, HOOK, CONTRE, ecart: 18, arpege: true }),
 });

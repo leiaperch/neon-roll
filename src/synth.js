@@ -585,14 +585,26 @@ export class Synth {
     }
   }
 
-  clap(t, { level = 0.3 } = {}) {
-    for (const [offset, mul] of [[0, 0.6], [0.012, 0.8], [0.026, 1]]) {
-      const g = this._env(t + offset, level * mul, 0.002, 0.12);
+  /**
+   * Clap : trois rebonds serrés et une courte traîne.
+   *
+   * Les quatre couches se somment, donc `level` doit être réparti entre
+   * elles : sinon le clap sort près de trois fois plus fort que demandé et
+   * écrase tout le reste, ce qui était le cas. Un passe-haut le tient aussi
+   * hors du domaine de la grosse caisse.
+   */
+  clap(t, { level = 0.3, longueur = 1 } = {}) {
+    const couches = [[0, 0.5], [0.011, 0.7], [0.024, 1], [0.038, 0.45]];
+    const somme = couches.reduce((a, [, m]) => a + m, 0);
+    const hp = this._filtre('highpass', 420);
+    hp.connect(this.master);
+    for (const [offset, mul] of couches) {
+      const g = this._env(t + offset, (level * mul) / somme, 0.002, 0.1 * longueur, hp);
       const s = this.ctx.createBufferSource();
       s.buffer = this.bruitBuffer;
-      s.connect(this._filtre('bandpass', 1700, 0.7)).connect(g);
+      s.connect(this._filtre('bandpass', 1750, 0.7)).connect(g);
       s.start(t + offset);
-      s.stop(t + offset + 0.2);
+      s.stop(t + offset + 0.25);
     }
   }
 

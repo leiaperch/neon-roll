@@ -46,7 +46,7 @@ export default piste({
   bpm: 148,
   rowsPerBeat: 2,
   echoSteps: 3,
-  mix: 1.35,
+  mix: 1,
   bars: 32,
   instruments: [],
   percussions: ['charleston', 'crash'],
@@ -100,11 +100,17 @@ export default piste({
     // Voie de bruit et grosse caisse, avec la coupure d'avant-drop.
     if (phase !== 'pont') {
       const coupe = monte && bar % 4 === 3 && inBar >= 4;
-      if (inBar % 4 === 0 && !coupe) s.kickMachine(t, { level: 0.5, from: 210, to: 55, decay: 0.13 });
+      // Chiptune passé au filtre du festival : la puce garde la mélodie, mais
+      // la rythmique devient celle d'un club. Quatre au sol pendant les drops,
+      // un temps sur deux ailleurs.
+      const quatreAuSol = drop || phase === 'montee2';
+      if ((quatreAuSol ? inBar % 2 === 0 : inBar % 4 === 0) && !coupe) {
+        s.kickMachine(t, { level: quatreAuSol ? 0.8 : 0.5, from: 195, to: 48, decay: 0.2 });
+      }
       // Bruit de claire sur le backbeat, deux et quatre : la puce n'a qu'une
       // voie de bruit, elle imite le kit avec ce qu'elle a.
       if ((inBar === 2 || inBar === 6) && phase !== 'intro') {
-        s.bruitPuce(t, { level: 0.32, decay: 0.12, aigu: 2400 });
+        s.bruitPuce(t, { level: 0.2, decay: 0.1, aigu: 2400 });
       }
       if (inBar % 2 === 1) s.bruitPuce(t, { level: 0.1, decay: 0.03 });
     }
@@ -131,6 +137,15 @@ export default piste({
       }
     } else if (inBar % 2 === 0) {
       s.puce(t, accord[(inBar >> 1) % accord.length], croche * 2, { level: 0.09, duty: 0.5 });
+    }
+
+    // Lit de supersaw sous la puce pendant les drops : c'est le filtre du
+    // festival posé sur le timbre 8 bits. La puce reste la voix qu'on suit,
+    // la largeur vient de dessous.
+    if (drop && inBar % 2 === 0) {
+      for (const note of accord) {
+        s.supersaw(t, note, croche * 1.9, { level: 0.05, ecart: 18, sub: 0, coupe: 5200 });
+      }
     }
 
     // Le crochet, doublé à l'octave sur les drops.
