@@ -25,19 +25,33 @@ const bords = (largeur) => {
 };
 
 /**
- * Deux attaques trop rapprochées deviennent injouables quand le tempo monte :
- * la bille met environ un dixième de seconde à changer de colonne. On garde
- * l'attaque et on saute la porte, la musique n'est pas altérée.
+ * Filtre humain.
+ *
+ * La bille change de colonne en un vingtième de seconde, mais un joueur ne
+ * décide pas à cette vitesse : il tient deux à trois changements de voie par
+ * seconde, avec de brèves pointes. Sans cette limite le générateur produit
+ * des couloirs corrects sur le papier et infaisables à la main, parce que le
+ * lead, lui, peut très bien attaquer six fois par mesure.
+ *
+ * On garde donc toutes les attaques dans la musique, et on ne retient comme
+ * portes que celles qu'un joueur peut réellement enchaîner. Une paire collée
+ * reste autorisée quand le tempo le permet, parce que c'est elle qui donne la
+ * sensation de « boum boum », mais elle est suivie d'un repos.
  */
-function espacer(accents, minEcart) {
-  const gardees = [];
+function filtreHumain(attaques, minEcart, paireAutorisee, reposApresPaire) {
+  const portes = [];
   let precedent = -99;
-  for (const pas of accents) {
-    if (pas - precedent < minEcart) continue;
-    gardees.push(pas);
-    precedent = pas;
+  let taillePaire = 0;
+  for (const row of attaques) {
+    const ecart = row - precedent;
+    const collee = ecart === 1 && paireAutorisee && taillePaire < 2;
+    const requis = taillePaire >= 2 ? reposApresPaire : minEcart;
+    if (!collee && ecart < requis) continue;
+    taillePaire = collee ? taillePaire + 1 : 1;
+    portes.push(row);
+    precedent = row;
   }
-  return gardees;
+  return portes;
 }
 
 /** Section active pour une mesure donnée. */
@@ -49,10 +63,21 @@ function sectionDe(sections, bar) {
 export function composeFromMusic(track) {
   const { bars, sections, rowsPerBeat, bpm } = track;
   const dureeLigne = 60 / (bpm * rowsPerBeat);
-  // Une esquive d'une colonne demande environ un dixième de seconde. En dessous
-  // de 160 BPM deux croches consécutives restent jouables, donc un « boum
-  // boum » donne bien deux portes. Au-delà, on espace d'une croche.
-  const minEcart = dureeLigne >= 0.19 ? 1 : 2;
+  // Deux portes consécutives doivent laisser au moins un quart de seconde,
+  // c'est le rythme qu'un joueur soutient. La paire collée n'est tolérée que
+  // si une ligne dure déjà presque autant.
+  const minEcart = Math.max(1, Math.ceil(0.25 / dureeLigne));
+  const paireAutorisee = dureeLigne >= 0.24;
+  const reposApresPaire = Math.max(minEcart, Math.ceil(0.45 / dureeLigne));
+
+  // Les attaques sont filtrées sur toute la piste et non mesure par mesure :
+  // une porte en fin de mesure et une autre au début de la suivante sont
+  // aussi rapprochées que deux portes au sein d'une même mesure.
+  const attaques = [];
+  for (let bar = 0; bar < bars; bar++) {
+    for (const pas of track.accents(bar)) attaques.push(bar * 8 + pas);
+  }
+  const portes = new Set(filtreHumain(attaques, minEcart, paireAutorisee, reposApresPaire));
 
   const rows = [];
   let colonne = 3;
@@ -65,7 +90,7 @@ export function composeFromMusic(track) {
     const { min, max } = bords(largeur);
     const porte = section.porte === undefined ? 1 : section.porte;
     const bond = section.bond || 1;
-    const accents = espacer(track.accents(bar), minEcart);
+    const premierePorte = [0, 1, 2, 3, 4, 5, 6, 7].find((p) => portes.has(bar * 8 + p));
     // La largeur de piste change d'une section à l'autre : si la porte se
     // trouvait sur une colonne qui vient de disparaître, on la ramène dans la
     // piste avant de continuer.
@@ -93,7 +118,7 @@ export function composeFromMusic(track) {
       // Une mesure de checkpoint doit être un répit : on y pose la porte du
       // niveau, pas des obstacles.
       const repos = section.mode === 'calme' || section.mode === 'halte';
-      const attaque = accents.includes(pas);
+      const attaque = portes.has(bar * 8 + pas);
       if (attaque && !repos) {
         // La porte se déplace : c'est ce déplacement qui oblige à jouer.
         let cible = colonne + sens * bond;
@@ -118,7 +143,7 @@ export function composeFromMusic(track) {
           for (let c = min; c <= max; c++) ligne[c] = LASER;
           colonne = 3;
         }
-        if (section.mode === 'balayeuse' && pas === accents[0]) {
+        if (section.mode === 'balayeuse' && pas === premierePorte) {
           for (let c = min; c <= max; c++) ligne[c] = FLOOR;
           ligne[3] = SWEEPER;
           // La barre couvre une moitié de piste au moment du passage : la

@@ -14,15 +14,26 @@ const ACCORDS = [
   [60, 65, 69], [60, 65, 69], [64, 67, 72], [64, 67, 72],
 ];
 
+/**
+ * Crochet en arche : la ligne monte par degrés conjoints, culmine une seule
+ * fois à la sixième mesure sur les trois quarts de la phrase, puis redescend.
+ *
+ * Les deux principes viennent du skill de composition. D'abord le climax
+ * unique placé aux deux tiers, approché par degrés et suivi d'une descente :
+ * sans descente ce n'est pas un sommet, c'est un plateau. Ensuite la
+ * proportion de degrés conjoints : enchaîner des sauts dans la même direction
+ * dessine l'accord et non une mélodie, c'est ce que faisaient mes crochets
+ * arpégés.
+ */
 const HOOK = [
-  [[0, 81, 1], [1, 81, 1], [2, 84, 2], [4, 86, 1], [6, 84, 2]],
-  [[0, 86, 2], [2, 89, 2], [4, 86, 4]],
-  [[0, 81, 1], [1, 81, 1], [2, 84, 2], [4, 86, 1], [6, 82, 2]],
-  [[0, 82, 2], [2, 86, 2], [4, 89, 4]],
-  [[0, 84, 1], [1, 84, 1], [2, 86, 2], [4, 89, 1], [6, 86, 2]],
-  [[0, 89, 2], [2, 93, 2], [4, 89, 4]],
-  [[0, 86, 1], [1, 86, 1], [2, 84, 2], [4, 81, 1], [6, 79, 2]],
-  [[0, 77, 2], [2, 79, 2], [4, 81, 4]],
+  [[0, 81, 1], [1, 81, 1], [2, 83, 2], [4, 84, 1], [6, 83, 2]],
+  [[0, 81, 2], [2, 79, 2], [4, 81, 4]],
+  [[0, 83, 1], [1, 83, 1], [2, 84, 2], [4, 86, 1], [6, 84, 2]],
+  [[0, 83, 2], [2, 81, 2], [4, 84, 4]],
+  [[0, 84, 1], [1, 86, 1], [2, 87, 2], [4, 86, 1], [6, 84, 2]],
+  [[0, 86, 2], [2, 88, 2], [4, 89, 4]], // climax : la seule fois qu'on va si haut
+  [[0, 88, 1], [1, 86, 1], [2, 84, 2], [4, 83, 1], [6, 81, 2]],
+  [[0, 79, 2], [2, 78, 2], [4, 74, 4]], // la descente qui fait du sommet un sommet
 ];
 
 const CONTRE = [

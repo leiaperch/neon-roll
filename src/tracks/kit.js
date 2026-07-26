@@ -66,7 +66,7 @@ export function sectionsEDM({ dur = 'bloc', variante = 'trou', respiration = 'ta
     [3, { mode: respiration, largeur: 5 }],
     [3, { mode: 'bloc', largeur: 7, porte: 1 }],
     [1, { mode: 'saut', couronne: true }],
-    [4, { mode: dur, largeur: 5, porte: 0, couronne: true }],
+    [4, { mode: dur, largeur: 5, porte: 1, couronne: true }],
     [3, { mode: variante, largeur: 7, porte: 1 }],
     [1, { mode: 'calme', largeur: 5, couronne: true }],
   ]);

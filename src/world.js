@@ -414,18 +414,27 @@ export class World {
     return mover.anchorX + Math.cos((2 * Math.PI * (t - arrivee)) / mover.period) * mover.amplitude;
   }
 
-  /** Hauteur d'un piston : sorti un temps sur deux, avec une course visible. */
+  /**
+   * Hauteur d'un piston.
+   *
+   * L'état affiché est celui de la ligne la plus proche, pas celui de
+   * l'horloge continue. C'est indispensable : la collision, elle, consulte
+   * l'état de la ligne. Calculée sur le temps continu, la course tombait à
+   * contretemps et un piston sur deux tuait en paraissant rentré, ce qui est
+   * proprement injouable puisque l'obstacle est alors invisible.
+   *
+   * La course se fait donc entre deux lignes, jamais autour de leur centre.
+   */
   riserHeight(t) {
-    const beats = (t / this.rowDuration) / this.track.rowsPerBeat;
-    const phase = beats % 2;
-    const monte = Math.min(1, Math.max(0, (phase - 1) * 4));
-    const descend = Math.min(1, Math.max(0, (2 - phase) * 4));
-    return Math.min(monte, descend);
-  }
-
-  laserActiveBank(t) {
-    const beats = (t / this.rowDuration) / this.track.rowsPerBeat;
-    return Math.floor(beats) % 2 === 0 ? 'gauche' : 'droite';
+    const rowF = t / this.rowDuration;
+    const row = Math.round(rowF);
+    const rpb = this.track.rowsPerBeat;
+    const ici = riserUp(row, rpb) ? 1 : 0;
+    const ecart = rowF - row;
+    if (Math.abs(ecart) < 0.35) return ici;
+    const voisine = riserUp(row + Math.sign(ecart), rpb) ? 1 : 0;
+    const avance = (Math.abs(ecart) - 0.35) / 0.15;
+    return ici + (voisine - ici) * Math.min(1, avance);
   }
 
   update(t, player) {

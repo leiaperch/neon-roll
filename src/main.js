@@ -104,6 +104,17 @@ window.__sillon = {
     ui.showSleeve();
     return rapport;
   },
+
+  /** Vérifie que ce qui est affiché correspond à ce qui tue. */
+  async coherence() {
+    const { coherence } = await import('./autoplay.js');
+    const rapport = TRACKS.map((t) => {
+      world.load(t);
+      return { piste: t.id, ecarts: coherence(world, t) };
+    });
+    game.load(courante);
+    return rapport;
+  },
 };
 
 let last = performance.now();
