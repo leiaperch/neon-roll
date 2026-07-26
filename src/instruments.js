@@ -278,6 +278,31 @@ export function tom(sr, { duree = 0.6, graine = 71, hauteur = 150 } = {}) {
 }
 
 /**
+ * Lame de bois frappée : marimba, balafon. Quelques partiels inharmoniques
+ * qui s'éteignent très vite au-dessus d'un fondamental qui tient. C'est le
+ * timbre chaud de la house de plage.
+ */
+export function lame(sr, freq, { duree = 1.6, graine = 103 } = {}) {
+  const out = new Float32Array(Math.floor(sr * duree));
+  const rnd = bruit(graine);
+  // Une lame de marimba sonne à l'octave et à la douzième, pas aux entiers.
+  const partiels = [[1, 1, 3], [3.93, 0.42, 9], [9.6, 0.16, 18], [15.8, 0.06, 26]];
+  let frappe = 0;
+  for (let i = 0; i < out.length; i++) {
+    const t = i / sr;
+    let v = 0;
+    for (const [ratio, amp, chute] of partiels) {
+      const f = freq * ratio;
+      if (f > sr / 2.2) continue;
+      v += amp * Math.sin(2 * Math.PI * f * t) * Math.exp(-t * chute);
+    }
+    frappe = frappe * 0.6 + rnd() * 0.4;
+    out[i] = v + frappe * Math.exp(-t * 320) * 0.25; // bruit du maillet
+  }
+  return fondu(normaliser(out, 0.85), sr);
+}
+
+/**
  * Catalogue. Chaque entrée sait fabriquer son timbre et pour quelles hauteurs
  * de référence : on génère une mémoire tampon par octave, la lecture ajuste
  * ensuite finement la vitesse. Une seule mémoire étirée sur quatre octaves
@@ -315,6 +340,10 @@ export const CATALOGUE = {
   orgue: {
     refs: [36, 48, 60, 72],
     faire: (sr, f) => tuyau(sr, f, { duree: 2.2 }),
+  },
+  marimba: {
+    refs: [60, 72, 84],
+    faire: (sr, f) => lame(sr, f, { duree: 1.5 }),
   },
 };
 

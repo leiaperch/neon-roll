@@ -41,7 +41,7 @@ const ACCENTS = [
 export default piste({
   id: 'techno',
   face: 'A',
-  index: 2,
+  index: 3,
   title: 'Sous-sol, 4 h',
   genre: 'Techno',
   tagline: 'La même mesure, jusqu’à ce qu’elle devienne autre chose.',

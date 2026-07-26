@@ -40,7 +40,7 @@ const ACCENTS = [
 export default piste({
   id: 'trance',
   face: 'B',
-  index: 3,
+  index: 5,
   title: 'Ascension',
   genre: 'Trance',
   tagline: 'Deux notes tenues, et tout le reste qui monte dessous.',

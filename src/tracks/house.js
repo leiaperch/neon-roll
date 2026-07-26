@@ -40,7 +40,7 @@ const ACCENTS = [
 export default piste({
   id: 'house',
   face: 'A',
-  index: 1,
+  index: 2,
   title: 'Boule à Facettes',
   genre: 'French house',
   tagline: 'Quatre accords, un filtre, et rien à prouver.',

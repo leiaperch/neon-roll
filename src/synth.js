@@ -73,6 +73,20 @@ export class Synth {
     this.duck.connect(this.master);
 
     this.banque = new Banque(this.ctx);
+    // Coloration de sortie : un rien de grave en moins pour laisser la place
+    // à la grosse caisse, un rien d'air en plus pour que ça respire.
+    this.airEQ = this.ctx.createBiquadFilter();
+    this.airEQ.type = 'highshelf';
+    this.airEQ.frequency.value = 7000;
+    this.airEQ.gain.value = 3;
+    this.sortie.disconnect();
+    this.sortie.connect(this.airEQ).connect(comp);
+
+    // Un nœud partagé doit être un point d'arrivée, jamais un intermédiaire :
+    // branché en amont d'enveloppes créées note après note, il finirait par
+    // alimenter toutes les enveloppes déjà jouées et le niveau exploserait.
+    this.satKick = this._saturateur(2.2);
+    this.satKick.connect(this.master);
     this.reverb = this._reverb();
     this.echo = this._echo();
     this.corpsCordes = this._corps([[280, 2.4, 0.5], [460, 3.2, 0.4], [740, 2.6, 0.28], [1300, 2, 0.18]]);
@@ -195,6 +209,37 @@ export class Synth {
     const g = this.ctx.createGain();
     g.gain.value = amount;
     node.connect(g).connect(bus);
+  }
+
+  /** Saturation douce, réutilisable : elle épaissit sans distordre. */
+  _saturateur(force) {
+    const shaper = this.ctx.createWaveShaper();
+    const n = 1024;
+    const courbe = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * 2 - 1;
+      courbe[i] = Math.tanh(x * force);
+    }
+    shaper.curve = courbe;
+    shaper.oversample = '2x';
+    return shaper;
+  }
+
+  /**
+   * Place une voix dans le champ stéréo.
+   *
+   * C'est ce qui manquait le plus : en mono, toutes les voix se disputent le
+   * même point de l'espace et le mélange sonne plat, quelle que soit la
+   * qualité des timbres. Étaler les voix rend chacune audible sans monter le
+   * volume.
+   */
+  _pan(valeur, dest) {
+    const p = this.ctx.createStereoPanner
+      ? this.ctx.createStereoPanner()
+      : this.ctx.createGain(); // repli si le navigateur ne le propose pas
+    if (p.pan) p.pan.value = Math.max(-1, Math.min(1, valeur));
+    p.connect(dest || this.master);
+    return p;
   }
 
   setEchoTime(s) {
@@ -354,6 +399,27 @@ export class Synth {
     this.note('orgue', t, midi, dur, { level: 0.26, attaque: 0.03, ...opts });
   }
 
+  marimba(t, midi, dur, opts = {}) {
+    this.note('marimba', t, midi, dur, { level: 0.34, ...opts });
+  }
+
+  /**
+   * Basse inversée : elle enfle au lieu d'attaquer, et se coupe net quand la
+   * grosse caisse revient. Jouée sur les contretemps, c'est elle qui donne au
+   * hardstyle sa sensation de rebond.
+   */
+  basseInverse(t, midi, dur, { level = 0.3 } = {}) {
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(level, t + dur * 0.85);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    const lp = this._filtre('lowpass', 400, 3);
+    lp.frequency.setValueAtTime(220, t);
+    lp.frequency.linearRampToValueAtTime(900, t + dur);
+    for (const d of [-6, 6]) this._osc('sawtooth', mtof(midi), t, t + dur + 0.04, d).connect(lp);
+    lp.connect(this._saturateur(1.8)).connect(g).connect(this.duck);
+  }
+
   /** Guitare électrique : la corde pincée traverse l'ampli. */
   electrique(t, midi, dur, { level = 0.3, mute = false, gratte = 0.008, notes = null } = {}) {
     const liste = notes || [midi];
@@ -425,12 +491,33 @@ export class Synth {
   }
 
   /** Kick de boîte à rythmes : une sinusoïde qui plonge, et le bus qui cède. */
-  kickMachine(t, { level = 0.95, from = 175, to = 42, decay = 0.26, duck = 0.3 } = {}) {
-    const g = this._env(t, level, 0.004, decay);
+  kickMachine(t, {
+    level = 0.95, from = 175, to = 42, decay = 0.26, duck = 0.3, clic = 0.5, queue = 0,
+  } = {}) {
+    // Corps saturé : une sinusoïde nue manque de tranchant, la saturation lui
+    // ajoute les harmoniques qui la font passer sur un petit haut-parleur.
+    const g = this._env(t, level, 0.004, decay, this.satKick);
     const o = this._osc('sine', from, t, t + decay + 0.1);
     o.frequency.setValueAtTime(from, t);
     o.frequency.exponentialRampToValueAtTime(to, t + decay * 0.5);
     o.connect(g);
+
+    // Clic d'attaque : c'est lui qu'on entend avant le grave.
+    if (clic > 0) {
+      const cg = this._env(t, level * clic * 0.5, 0.001, 0.014);
+      const s = this.ctx.createBufferSource();
+      s.buffer = this.bruitBuffer;
+      s.connect(this._filtre('highpass', 2200)).connect(cg);
+      s.start(t);
+      s.stop(t + 0.05);
+    }
+    // Queue accordée, longue et distordue : la signature du hardstyle.
+    if (queue > 0) {
+      const qg = this._env(t + 0.05, level * 0.55, 0.008, queue, this.satKick);
+      const q = this._osc('sine', to * 1.6, t + 0.05, t + queue + 0.15);
+      q.frequency.exponentialRampToValueAtTime(to * 0.75, t + queue);
+      q.connect(qg);
+    }
     this.ducker(t, duck);
   }
 
@@ -456,11 +543,13 @@ export class Synth {
     const g = this._env(t, level, 0.012, dur, dest || this.duck);
     const lp = this._filtre('lowpass', coupe, 0.8);
     for (let i = 0; i < voix; i++) {
-      const detune = ((i - (voix - 1) / 2) / ((voix - 1) / 2)) * ecart;
-      const o = this._osc('sawtooth', f, t, t + dur + 0.08, detune);
+      const place = (i - (voix - 1) / 2) / ((voix - 1) / 2); // -1 à +1
+      const o = this._osc('sawtooth', f, t, t + dur + 0.08, place * ecart);
       const v = this.ctx.createGain();
       v.gain.value = 1 / Math.sqrt(voix);
-      o.connect(v).connect(lp);
+      // Les voix désaccordées sont étalées de gauche à droite : c'est ce qui
+      // donne au supersaw sa largeur, bien plus que le désaccord lui-même.
+      o.connect(v).connect(this._pan(place * 0.85, lp));
     }
     lp.connect(g);
     if (sub > 0) {

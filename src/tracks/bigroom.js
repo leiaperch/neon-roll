@@ -38,7 +38,7 @@ const ACCENTS = [
 export default piste({
   id: 'bigroom',
   face: 'B',
-  index: 5,
+  index: 9,
   title: 'Grand Format',
   genre: 'Big room',
   tagline: 'Trois notes, un drop, et plus le temps de réfléchir.',

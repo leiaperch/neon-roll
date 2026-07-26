@@ -78,7 +78,11 @@ export function sectionsEDM({ dur = 'bloc', variante = 'trou', respiration = 'ta
  * supersaw sur le lead, montées à la caisse claire, drop qui tombe sur le
  * premier temps.
  */
-export function motifEDM({ ACCORDS, BASSE, HOOK, CONTRE, sub = 0.5, ecart = 16 }) {
+export function motifEDM({ ACCORDS, BASSE, HOOK, CONTRE, sub = 0.5, ecart = 16, style = 'festival' }) {
+  const tropical = style === 'tropical';
+  const hardstyle = style === 'hardstyle';
+  const futurebass = style === 'futurebass';
+
   return function pattern(step, t, s) {
     const bar = Math.floor(step / 8);
     const inBar = step % 8;
@@ -96,11 +100,24 @@ export function motifEDM({ ACCORDS, BASSE, HOOK, CONTRE, sub = 0.5, ecart = 16 }
       // La dernière mesure d'une montée coupe la grosse caisse : le vide
       // avant le drop est ce qui fait tomber le drop.
       const coupe = monte && derniereMesure && inBar >= 4;
-      if (inBar % 2 === 0 && !coupe) s.kickMachine(t, { level: drop ? 0.95 : 0.8 });
+      if (inBar % 2 === 0 && !coupe) {
+        if (hardstyle) {
+          // Grosse caisse à queue accordée : elle occupe tout le temps.
+          s.kickMachine(t, { level: 0.95, from: 210, to: 46, decay: 0.16, queue: croche * 1.4, duck: 0.18 });
+        } else if (tropical) {
+          s.kickMachine(t, { level: 0.7, from: 150, to: 48, decay: 0.22, clic: 0.25, duck: 0.42 });
+        } else {
+          s.kickMachine(t, { level: drop ? 0.95 : 0.8 });
+        }
+      }
       if (inBar % 2 === 1) {
         s.charleston(t, { level: phase === 'intro' ? 0.13 : 0.19, ouvert: inBar % 4 === 3 });
       }
       if (inBar === 4 && phase !== 'intro') s.clap(t, { level: drop ? 0.32 : 0.24 });
+      // Contretemps du hardstyle : la basse enfle entre deux frappes.
+      if (hardstyle && drop && inBar % 2 === 1) {
+        s.basseInverse(t, basse - 12, croche * 0.92, { level: 0.28 });
+      }
     } else if (inBar % 4 === 0) {
       s.charleston(t, { level: 0.1, ouvert: true });
     }
@@ -116,7 +133,7 @@ export function motifEDM({ ACCORDS, BASSE, HOOK, CONTRE, sub = 0.5, ecart = 16 }
     }
 
     // --- Basse : sub tenu sous le drop, absente au pont ---
-    if (phase !== 'pont' && phase !== 'intro') {
+    if (phase !== 'pont' && phase !== 'intro' && !hardstyle) {
       if (inBar % 2 === 0) {
         s.basse(t, basse - 12, croche * 1.7, {
           level: drop ? 0.3 : 0.22, cutoff: drop ? 1400 : 700, floor: 200, q: 5,
@@ -149,10 +166,17 @@ export function motifEDM({ ACCORDS, BASSE, HOOK, CONTRE, sub = 0.5, ecart = 16 }
     // --- Le crochet ---
     const ligne = HOOK[mesure % HOOK.length];
     if (drop) {
-      // Doublé à l'octave, c'est ce qui le rend inoubliable.
       surPas(ligne, inBar, (note, duree) => {
-        s.supersaw(t, note, duree * croche * 0.95, { level: 0.13, ecart, sub, coupe: 7000 });
-        s.supersaw(t, note - 12, duree * croche * 0.9, { level: 0.05, ecart: ecart * 0.6, sub: 0 });
+        if (tropical) {
+          // Lame de bois doublée d'un souffle de supersaw : chaud, pas dur.
+          s.marimba(t, note, duree * croche, { level: 0.4 });
+          s.supersaw(t, note - 12, duree * croche * 0.9, { level: 0.05, ecart: 8, sub: 0, coupe: 3200 });
+        } else {
+          // Doublé à l'octave, c'est ce qui rend un thème inoubliable.
+          s.supersaw(t, note, duree * croche * 0.95, { level: 0.13, ecart, sub, coupe: 7000 });
+          s.supersaw(t, note - 12, duree * croche * 0.9, { level: 0.05, ecart: ecart * 0.6, sub: 0 });
+        }
+        if (futurebass) s.pincement(t, note + 12, duree * croche * 0.6, { level: 0.07, ouverture: 7000 });
       });
     } else if (phase === 'pont') {
       // Au pont il reste seul, joué doucement : on l'entend enfin en entier.
