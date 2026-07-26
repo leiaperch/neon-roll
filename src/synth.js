@@ -103,8 +103,28 @@ export class Synth {
     }
   }
 
+  /**
+   * Lit la mémoire de bruit à un endroit différent à chaque appel.
+   *
+   * Relire toujours le même extrait crée deux défauts. Superposées, les copies
+   * se filtrent en peigne et sifflent au lieu de claquer ; répétées vite, elles
+   * deviennent un timbre reconnaissable au lieu d'un bruit. Un compteur suffit
+   * à décorréler, et il reste déterministe.
+   */
+  _lecteurBruit(t, duree, rate = 1) {
+    const s = this.ctx.createBufferSource();
+    s.buffer = this.bruitBuffer;
+    s.playbackRate.value = rate;
+    this._grain = ((this._grain || 0) + 0.0731) % 1;
+    const depart = this._grain * (this.bruitBuffer.duration - duree * rate - 0.01);
+    s.start(t, Math.max(0, depart));
+    s.stop(t + duree);
+    return s;
+  }
+
   _bruit() {
-    const len = Math.floor(this.ctx.sampleRate * 0.6);
+    // Deux secondes : assez long pour que la montée n'entende pas la boucle.
+    const len = Math.floor(this.ctx.sampleRate * 2);
     const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const d = buf.getChannelData(0);
     let s = 1337;
@@ -458,6 +478,17 @@ export class Synth {
   balai(t, o = {}) { this.frappe('balai', t, { level: 0.3, ...o }); }
   charleston(t, o = {}) { this.frappe(o.ouvert ? 'charlestonOuvert' : 'charleston', t, { level: 0.22, ...o }); }
   ride(t, o = {}) { this.frappe('ride', t, { level: 0.2, ...o }); }
+
+  /**
+   * Shaker : bruit filtré très court. Une cymbale accélérée, ce que j'utilisais
+   * avant, garde ses partiels inharmoniques et sonne métallique là où il faut
+   * juste un souffle rythmique.
+   */
+  shaker(t, { level = 0.12, decay = 0.05 } = {}) {
+    const g = this._env(t, level, 0.004, decay, this._pan((this._grain || 0) - 0.5));
+    const bp = this._filtre('bandpass', 6800, 1.2);
+    this._lecteurBruit(t, decay + 0.06).connect(bp).connect(g);
+  }
   crash(t, o = {}) { this.frappe('crash', t, { level: 0.32, ...o }); }
   tom(t, o = {}) { this.frappe(o.aigu ? 'tomAigu' : 'tomGrave', t, { level: 0.45, ...o }); }
 
@@ -600,11 +631,7 @@ export class Synth {
     hp.connect(this.master);
     for (const [offset, mul] of couches) {
       const g = this._env(t + offset, (level * mul) / somme, 0.002, 0.1 * longueur, hp);
-      const s = this.ctx.createBufferSource();
-      s.buffer = this.bruitBuffer;
-      s.connect(this._filtre('bandpass', 1750, 0.7)).connect(g);
-      s.start(t + offset);
-      s.stop(t + offset + 0.25);
+      this._lecteurBruit(t + offset, 0.25).connect(this._filtre('bandpass', 1750, 0.7)).connect(g);
     }
   }
 
@@ -626,7 +653,10 @@ export class Synth {
     const inv = this.ctx.createGain();
     inv.gain.value = -1;
     const delay = this.ctx.createDelay(0.05);
-    delay.delayTime.value = duty / f;
+    // L'impulsion vient du décalage entre les deux dents de scie. Sous un
+    // échantillon, ce décalage n'est plus représentable et la note se met à
+    // grésiller au lieu de sonner : on le borne.
+    delay.delayTime.value = Math.max(duty / f, 1.5 / this.ctx.sampleRate);
     a.connect(g);
     b.connect(delay).connect(inv).connect(g);
     if (vibrato > 0) {
@@ -641,12 +671,7 @@ export class Synth {
 
   bruitPuce(t, { level = 0.2, decay = 0.08, aigu = 6000 } = {}) {
     const g = this._env(t, level, 0.002, decay);
-    const s = this.ctx.createBufferSource();
-    s.buffer = this.bruitBuffer;
-    s.playbackRate.value = 1.6;
-    s.connect(this._filtre('highpass', aigu)).connect(g);
-    s.start(t);
-    s.stop(t + decay + 0.1);
+    this._lecteurBruit(t, decay + 0.1, 1.6).connect(this._filtre('highpass', aigu)).connect(g);
   }
 
   nappe(t, midi, dur, { level = 0.09, type = 'sawtooth' } = {}) {
@@ -668,17 +693,18 @@ export class Synth {
     if (echo > 0) this.send(g, echo, this.echo);
   }
 
+  /**
+   * Montée de bruit filtré. La mémoire n'est plus bouclée : une boucle de
+   * deux secondes se réentend comme une pulsation, et c'est exactement le
+   * genre de bruit parasite qu'on croit venir du synthé.
+   */
   montee(t, dur, { level = 0.14 } = {}) {
     const g = this._env(t, level, dur * 0.9, dur * 0.1);
     const bp = this._filtre('bandpass', 400, 3);
     bp.frequency.setValueAtTime(400, t);
     bp.frequency.exponentialRampToValueAtTime(6000, t + dur);
-    const s = this.ctx.createBufferSource();
-    s.buffer = this.bruitBuffer;
-    s.loop = true;
-    s.connect(bp).connect(g);
-    s.start(t);
-    s.stop(t + dur + 0.05);
+    const duree = Math.min(dur + 0.05, this.bruitBuffer.duration - 0.02);
+    this._lecteurBruit(t, duree).connect(bp).connect(g);
   }
 
   // ---------- Effets de jeu ----------

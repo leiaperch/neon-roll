@@ -99,8 +99,8 @@ const BATTERIES = {
     if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: 0.16, longueur: 0.8 });
     // Shaker : deux coups par croche, c'est lui qui donne le balancement.
     if (!c.pont) {
-      s.charleston(t, { level: 0.07, rate: 1.7 });
-      s.charleston(t + croche / 2, { level: 0.11, rate: 1.7 });
+      s.shaker(t, { level: 0.07 });
+      s.shaker(t + croche / 2, { level: 0.11 });
     }
     if (inBar === 7) s.charleston(t, { level: 0.14, ouvert: true });
   },
