@@ -1,12 +1,11 @@
-import { piste, surPas, plan } from './kit.js';
+import { piste, surPas, sectionsEDM, phaseDe } from './kit.js';
 
 /**
- * Face B, piste 4. La mineur pour puce sonore.
+ * Face B, piste 4. La mineur pour puce sonore, 148 BPM.
  *
- * Trois voix à impulsion et une voie de bruit. Le crochet de deux mesures est
- * joué, rejoué à l'identique, remplacé par un pont, puis rejoué avec une autre
- * chute : deux mesures qui reviennent trois fois sur huit, c'est ce qui fait
- * qu'on ressort en le fredonnant.
+ * Seule piste à garder ses oscillateurs bruts : ici c'est le sujet, pas un
+ * pis-aller. Elle suit la même structure de festival que les autres, montée,
+ * drop, pont, mais avec trois voix à impulsion et une voie de bruit.
  */
 
 const BASSE = [45, 45, 41, 41, 48, 48, 43, 43];
@@ -32,8 +31,6 @@ const HOOK = [
   PONT[0], PONT[1], CROCHET_FIN[0], CROCHET_FIN[1],
 ];
 
-/** Le crochet attaque sur deux croches collées, puis relance sur la seconde
- *  moitié : c'est ce dessin qui devient une double porte puis une porte. */
 const ACCENTS = [
   [0, 1, 4], [0, 2, 6], [0, 1, 4], [0, 2, 6],
   [0, 2, 4], [0, 2, 4], [0, 1, 4, 6], [0, 4, 6],
@@ -46,13 +43,13 @@ export default piste({
   title: 'Cartouche 03',
   genre: 'Chiptune',
   tagline: 'Trois voix, une voie de bruit, aucune excuse.',
-  bpm: 150,
+  bpm: 148,
   rowsPerBeat: 2,
   echoSteps: 3,
-  mix: 1.8,
+  mix: 1.7,
   bars: 32,
   instruments: [],
-  percussions: [],
+  percussions: ['charleston', 'crash'],
   ACCENTS,
 
   palette: {
@@ -67,22 +64,7 @@ export default piste({
     ball: 0xffffff,
   },
 
-  sections: plan([
-    [4, { mode: 'calme', largeur: 5 }],
-    [1, { mode: 'halte' }],
-    [3, { mode: 'bloc', largeur: 5, porte: 1 }],
-    [4, { mode: 'piston', largeur: 5, porte: 1 }],
-    [1, { mode: 'halte' }],
-    [3, { mode: 'trou', largeur: 5, porte: 1 }],
-    [1, { mode: 'saut', couronne: true }],
-    [3, { mode: 'bloc', largeur: 7, porte: 1 }],
-    [1, { mode: 'halte' }],
-    [3, { mode: 'tapis', largeur: 5, couronne: true }],
-    [4, { mode: 'bloc', largeur: 5, porte: 0 }],
-    [1, { mode: 'halte' }],
-    [2, { mode: 'piston', largeur: 7, porte: 0 }],
-    [1, { mode: 'calme', largeur: 5, couronne: true }],
-  ]),
+  sections: sectionsEDM({ variante: 'piston', respiration: 'tapis', dur: 'bloc' }),
 
   decor(stage) {
     const { rows, box, neon, colX, TILE } = stage;
@@ -109,37 +91,52 @@ export default piste({
     const inBar = step % 8;
     const mesure = bar % 8;
     const croche = s.stepDuration;
+    const phase = phaseDe(bar);
     const accord = ACCORDS[mesure];
     const basse = BASSE[mesure];
-    const intro = bar < 4;
-    const rupture = bar >= 20 && bar < 22;
-    const seconde = bar >= 16;
-    const finale = bar >= 28;
+    const drop = phase === 'drop' || phase === 'drop2';
+    const monte = phase === 'montee' || phase === 'montee2';
 
-    if (!intro && !rupture) {
-      if (inBar % 4 === 0) s.kickMachine(t, { level: 0.45, from: 210, to: 55, decay: 0.13 });
-      if (inBar === 4) s.bruitPuce(t, { level: 0.3, decay: 0.12, aigu: 2400 });
+    // Voie de bruit et grosse caisse, avec la coupure d'avant-drop.
+    if (phase !== 'pont') {
+      const coupe = monte && bar % 4 === 3 && inBar >= 4;
+      if (inBar % 4 === 0 && !coupe) s.kickMachine(t, { level: 0.5, from: 210, to: 55, decay: 0.13 });
+      if (inBar === 4 && phase !== 'intro') s.bruitPuce(t, { level: 0.32, decay: 0.12, aigu: 2400 });
       if (inBar % 2 === 1) s.bruitPuce(t, { level: 0.1, decay: 0.03 });
-      s.puce(t, basse - 12 + (inBar >= 6 ? 12 : 0), croche * 0.45, { level: 0.24, duty: 0.25 });
     }
-
-    if (!rupture) {
-      for (let i = 0; i < 2; i++) {
-        const note = accord[(inBar * 2 + i) % accord.length] + (seconde ? 12 : 0);
-        s.puce(t + (i * croche) / 2, note, croche / 2, {
-          level: intro ? 0.07 : 0.1, duty: i === 0 ? 0.125 : 0.5,
-        });
+    if ((bar === 8 || bar === 24) && inBar === 0) s.crash(t, { level: 0.3 });
+    if (monte && bar % 4 >= 2 && inBar % 2 === 0) {
+      const serre = bar % 4 === 3 ? 4 : 2;
+      for (let i = 0; i < serre; i++) {
+        s.bruitPuce(t + (i * croche) / serre, { level: 0.16, decay: 0.04, aigu: 3200 });
       }
     }
 
-    if (!intro || bar === 3) {
+    // Basse en impulsion étroite.
+    if (phase !== 'pont' && phase !== 'intro') {
+      s.puce(t, basse - 12 + (inBar >= 6 ? 12 : 0), croche * 0.45, { level: 0.24, duty: 0.25 });
+    }
+
+    // Accompagnement en doubles croches.
+    if (phase !== 'pont') {
+      for (let i = 0; i < 2; i++) {
+        const note = accord[(inBar * 2 + i) % accord.length] + (drop ? 12 : 0);
+        s.puce(t + (i * croche) / 2, note, croche / 2, {
+          level: phase === 'intro' ? 0.07 : 0.1, duty: i === 0 ? 0.125 : 0.5,
+        });
+      }
+    } else if (inBar % 2 === 0) {
+      s.puce(t, accord[(inBar >> 1) % accord.length], croche * 2, { level: 0.09, duty: 0.5 });
+    }
+
+    // Le crochet, doublé à l'octave sur les drops.
+    if (phase !== 'intro' || bar === 3) {
       surPas(HOOK[mesure], inBar, (note, duree) => {
-        s.puce(t, note, duree * croche * 0.95, { level: 0.2, duty: 0.5, vibrato: finale ? 4 : 0 });
-        if (finale) s.puce(t, note - 12, duree * croche * 0.9, { level: 0.1, duty: 0.25 });
+        s.puce(t, note, duree * croche * 0.95, { level: 0.2, duty: 0.5, vibrato: drop ? 4 : 0 });
+        if (drop) s.puce(t, note - 12, duree * croche * 0.9, { level: 0.09, duty: 0.25 });
       });
     }
 
-    if (rupture && inBar === 0) s.montee(t, croche * 8, { level: 0.12 });
-    if (bar === 22 && inBar === 0) s.bruitPuce(t, { level: 0.4, decay: 0.5, aigu: 1200 });
+    if (monte && bar % 4 === 3 && inBar === 0) s.montee(t, croche * 8, { level: 0.14 });
   },
 });

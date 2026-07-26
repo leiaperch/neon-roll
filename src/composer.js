@@ -1,6 +1,6 @@
 import {
   VOID, FLOOR, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT,
-  SWEEPER, LASER, RISER, BELT_R, BELT_L,
+  SWEEPER, LASER, RISER, BELT_R, BELT_L, sensBalayage,
 } from './levelkit.js';
 
 /**
@@ -90,8 +90,11 @@ export function composeFromMusic(track) {
       const ligne = new Array(7).fill(VOID);
       for (let c = min; c <= max; c++) ligne[c] = FLOOR;
 
+      // Une mesure de checkpoint doit être un répit : on y pose la porte du
+      // niveau, pas des obstacles.
+      const repos = section.mode === 'calme' || section.mode === 'halte';
       const attaque = accents.includes(pas);
-      if (attaque && section.mode !== 'calme') {
+      if (attaque && !repos) {
         // La porte se déplace : c'est ce déplacement qui oblige à jouer.
         let cible = colonne + sens * bond;
         if (cible < min || cible > max) {
@@ -118,6 +121,10 @@ export function composeFromMusic(track) {
         if (section.mode === 'balayeuse' && pas === accents[0]) {
           for (let c = min; c <= max; c++) ligne[c] = FLOOR;
           ligne[3] = SWEEPER;
+          // La barre couvre une moitié de piste au moment du passage : la
+          // porte doit se trouver de l'autre côté, sinon le niveau demande
+          // d'être exactement là où la barre arrive.
+          cible = sensBalayage(bar * 8 + pas) > 0 ? min + 1 : max - 1;
         }
         colonne = cible;
 

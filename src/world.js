@@ -5,7 +5,7 @@ import {
 } from './config.js';
 import {
   VOID, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT, SWEEPER, SLIDER,
-  LASER, RISER, BELT_R, BELT_L, PLATFORM, laserBank, riserUp,
+  LASER, RISER, BELT_R, BELT_L, PLATFORM, laserBank, riserUp, sensBalayage,
 } from './levelkit.js';
 
 const SWEEPER_PERIOD_BEATS = 6;
@@ -317,8 +317,9 @@ export class World {
             new THREE.BoxGeometry(largeur, BLOCK_HEIGHT, profondeur), mobileMat());
           mesh.position.set(0, BLOCK_HEIGHT / 2, row * TILE);
           this.trackGroup.add(mesh);
-          // Un obstacle sur deux balaie dans l'autre sens : le côté sûr alterne.
-          const sens = this.movers.length % 2 === 0 ? 1 : -1;
+          // Le sens se déduit de la ligne, pas de l'ordre de création : le
+          // générateur de carte doit pouvoir calculer le côté sûr lui aussi.
+          const sens = sensBalayage(row);
           this.movers.push({
             mesh, row, type: ch, solid: false,
             anchorX: colX(col), halfW: largeur / 2, halfD: profondeur / 2,
@@ -449,14 +450,18 @@ export class World {
     }
 
     if (this.laserMesh) {
-      const actif = this.laserActiveBank(t);
-      const vif = this._color.set(this.track.palette.block);
+      // Chaque barrière affiche le côté qui sera allumé au moment où la bille
+      // l'atteindra, pas celui de l'instant présent. Sinon on lit une moitié
+      // barrée de loin, on se place de l'autre côté, et tout bascule à
+      // l'arrivée : le passage devient injouable alors qu'il est correct.
+      const pulsation = 0.82 + Math.sin(t * 12) * 0.18;
+      const vif = this._color.set(this.track.palette.block).multiplyScalar(pulsation);
       const eteint = new THREE.Color(this.track.palette.accent).multiplyScalar(0.18);
       for (let i = 0; i < this.lasers.length; i++) {
         const l = this.lasers[i];
         ['gauche', 'droite'].forEach((cote, k) => {
           const idx = i * 2 + k;
-          const allume = cote === actif;
+          const allume = cote === l.bank;
           d.position.set(cote === 'gauche' ? -LASER_CENTER : LASER_CENTER, allume ? 1.35 : 0.2, l.z);
           d.rotation.set(0, 0, 0);
           d.scale.set(1, allume ? 1 : 0.12, 1);

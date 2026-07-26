@@ -1,40 +1,40 @@
-import { piste, surPas, plan } from './kit.js';
+import { piste, sectionsEDM, motifEDM } from './kit.js';
 
 /**
- * Face A, piste 1. House filtrée en la mineur.
+ * Face A, piste 1. House filtrée en la mineur, 118 BPM.
  *
  * La plus lente du disque, donc la plus large : c'est la piste où on apprend
- * le geste. Le crochet est court et revient tout le temps, la guitare pincée
- * passe dans un filtre qui s'ouvre, et la basse joue les silences.
+ * le geste. Le crochet tient en deux mesures et revient tout le temps.
  */
 
-const BASSE = [45, 45, 50, 50, 43, 43, 48, 48];
+const BASSE = [45, 45, 41, 41, 48, 48, 43, 43];
 const ACCORDS = [
-  [64, 67, 72, 76], [64, 67, 72, 76], [62, 65, 69, 74], [62, 65, 69, 74],
-  [62, 67, 71, 77], [62, 67, 71, 77], [64, 67, 71, 76], [64, 67, 71, 76],
+  [69, 72, 76], [69, 72, 76], [65, 69, 72], [65, 69, 72],
+  [64, 67, 72], [64, 67, 72], [67, 71, 74], [67, 71, 74],
 ];
 
-/** Le crochet : deux mesures, rejouées telles quelles. */
-const CROCHET = [
-  [[0, 81, 1], [2, 84, 1], [3, 86, 1], [6, 84, 2]],
-  [[0, 81, 1], [2, 79, 1], [4, 76, 4]],
-];
-const CROCHET_FIN = [
-  [[0, 81, 1], [2, 84, 1], [3, 86, 1], [6, 88, 2]],
-  [[0, 89, 2], [4, 86, 2], [6, 84, 2]],
-];
 const HOOK = [
-  CROCHET[0], CROCHET[1], CROCHET[0], CROCHET[1],
-  CROCHET[0], CROCHET[1], CROCHET_FIN[0], CROCHET_FIN[1],
+  [[0, 81, 2], [2, 84, 1], [3, 86, 1], [6, 84, 2]],
+  [[0, 86, 2], [2, 84, 1], [3, 81, 1], [4, 79, 4]],
+  [[0, 81, 2], [2, 84, 1], [3, 86, 1], [6, 84, 2]],
+  [[0, 86, 2], [2, 84, 1], [3, 81, 1], [4, 79, 4]],
+  [[0, 81, 2], [2, 84, 1], [3, 88, 1], [6, 89, 2]],
+  [[0, 88, 4], [4, 84, 2], [6, 81, 2]],
+  [[0, 81, 2], [2, 84, 1], [3, 86, 1], [6, 84, 2]],
+  [[0, 79, 2], [2, 81, 2], [4, 84, 4]],
 ];
 
-/**
- * Accents : ce qu'on taperait dans les mains. Les mesures 0, 2 et 4 portent
- * un « boum boum » sur les croches 2 et 3, qui devient deux portes de suite.
- */
+const CONTRE = [
+  [[1, 72, 1], [5, 76, 1]], [[1, 72, 1], [5, 74, 1]],
+  [[1, 69, 1], [5, 72, 1]], [[1, 69, 1], [5, 72, 1]],
+  [[1, 72, 1], [5, 76, 1]], [[1, 72, 1], [5, 79, 1]],
+  [[1, 74, 1], [5, 71, 1]], [[1, 72, 1], [5, 76, 1]],
+];
+
+/** Les croches 2 et 3 portent le « boum boum » : deux portes de suite. */
 const ACCENTS = [
-  [0, 2, 3, 6], [0, 2, 4], [0, 2, 3, 6], [0, 4],
-  [0, 2, 3, 6], [0, 2, 4], [0, 2, 3, 6], [0, 4, 6],
+  [0, 2, 3, 6], [0, 2, 4], [0, 2, 3, 6], [0, 2, 4],
+  [0, 2, 3, 6], [0, 4, 6], [0, 2, 3, 6], [0, 2, 4],
 ];
 
 export default piste({
@@ -47,10 +47,10 @@ export default piste({
   bpm: 118,
   rowsPerBeat: 2,
   echoSteps: 3,
-  mix: 1.15,
+  mix: 1.05,
   bars: 32,
-  instruments: ['guitare', 'orgue'],
-  percussions: ['grosseCaisse', 'charleston', 'charlestonOuvert', 'caisseClaire', 'crash'],
+  instruments: [],
+  percussions: ['charleston', 'charlestonOuvert', 'crash'],
   ACCENTS,
 
   palette: {
@@ -65,27 +65,9 @@ export default piste({
     ball: 0xfffaf0,
   },
 
-  sections: plan([
-    [4, { mode: 'calme', largeur: 5 }],
-    [1, { mode: 'halte' }],
-    [3, { mode: 'bloc', largeur: 5, porte: 1 }],
-    [4, { mode: 'trou', largeur: 5, porte: 1 }],
-    [1, { mode: 'halte' }],
-    [3, { mode: 'bloc', largeur: 7, porte: 1 }],
-    [1, { mode: 'saut', couronne: true }],
-    [3, { mode: 'tapis', largeur: 5 }],
-    [1, { mode: 'halte' }],
-    [3, { mode: 'bloc', largeur: 5, porte: 0, couronne: true }],
-    [4, { mode: 'faisceau', largeur: 5 }],
-    [1, { mode: 'halte' }],
-    [2, { mode: 'bloc', largeur: 7, porte: 0 }],
-    [1, { mode: 'calme', largeur: 5, couronne: true }],
-  ]),
+  sections: sectionsEDM({ variante: 'trou', respiration: 'tapis', dur: 'bloc' }),
 
-  /**
-   * Mâts et boules à facettes, espacés : le ciel de fin de journée est le
-   * vrai décor, il ne faut pas l'encombrer.
-   */
+  /** Mâts et boules à facettes, espacés : le ciel est le vrai décor. */
   decor(stage) {
     const { rows, box, neon, colX, TILE } = stage;
     const mat = this.palette.decor;
@@ -98,7 +80,6 @@ export default piste({
         neon(x, 7.6, z, 1.9, 0.2, 1.9, this.palette.accent);
       }
     }
-    // Podium bas qui court le long de la piste, il donne la vitesse.
     for (let row = 0; row < rows; row += 3) {
       const z = row * TILE;
       for (const side of [-1, 1]) {
@@ -107,47 +88,5 @@ export default piste({
     }
   },
 
-  pattern(step, t, s) {
-    const bar = Math.floor(step / 8);
-    const inBar = step % 8;
-    const mesure = bar % 8;
-    const croche = s.stepDuration;
-    const accord = ACCORDS[mesure];
-    const basse = BASSE[mesure];
-    const intro = bar < 4;
-    const pont = bar >= 20 && bar < 22;
-    const plein = bar >= 12;
-
-    // Batterie : quatre au sol, charleston ouvert sur les contretemps.
-    if (!pont) {
-      if (inBar % 2 === 0) s.grosseCaisse(t, { level: 0.7 });
-      if (inBar % 2 === 1) s.charleston(t, { level: 0.22, ouvert: inBar % 4 === 3 });
-      if (!intro && inBar === 4) s.caisseClaire(t, { level: 0.3 });
-    }
-    if ((bar === 12 || bar === 22) && inBar === 0) s.crash(t, { level: 0.26 });
-
-    // Basse : elle laisse le premier temps à la grosse caisse.
-    if (!intro && !pont && [1, 3, 4, 6, 7].includes(inBar)) {
-      s.basse(t, basse - 12 + (inBar === 7 ? 12 : 0), croche * 0.8, {
-        level: 0.28, cutoff: 1100, floor: 260, q: 4,
-      });
-    }
-
-    // Accord de guitare pincée sur les contretemps : le geste de la house.
-    if (!intro && inBar % 2 === 1) {
-      s.accord('guitare', t, accord, croche * 0.9, {
-        level: pont ? 0.3 : 0.2, gratte: 0.01, coupe: plein ? 4200 : 1800,
-      });
-    }
-    if (inBar === 0) s.orgue(t, basse - 12, croche * 8, { level: pont ? 0.16 : 0.09 });
-
-    // Le crochet, toujours le même, une octave plus haut au dernier tiers.
-    if (!intro) {
-      surPas(HOOK[mesure], inBar, (note, duree) => {
-        s.stab(t, [note + (bar >= 24 ? 12 : 0)], duree * croche * 0.9, { level: 0.11, echo: 0.35 });
-        s.puce(t, note - 12, duree * croche * 0.5, { level: 0.05, duty: 0.3 });
-      });
-    }
-    if (pont && inBar === 0) s.montee(t, croche * 8, { level: 0.1 });
-  },
+  pattern: motifEDM({ ACCORDS, BASSE, HOOK, CONTRE, ecart: 14 }),
 });

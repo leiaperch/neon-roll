@@ -65,6 +65,13 @@ export class Synth {
     this.sortie.gain.value = MASTER_LEVEL;
     this.master.connect(this.mix).connect(this.sortie).connect(comp).connect(this.ctx.destination);
 
+    // Bus « ducké » : tout ce qui tient une note passe par là, et la grosse
+    // caisse le fait plonger à chaque frappe. C'est la respiration qui fait
+    // qu'un morceau sonne produit plutôt que superposé.
+    this.duck = this.ctx.createGain();
+    this.duck.gain.value = 1;
+    this.duck.connect(this.master);
+
     this.banque = new Banque(this.ctx);
     this.reverb = this._reverb();
     this.echo = this._echo();
@@ -417,13 +424,76 @@ export class Synth {
     return f;
   }
 
-  /** Kick de boîte à rythmes, pour la techno : une sinusoïde qui plonge. */
-  kickMachine(t, { level = 0.95, from = 175, to = 42, decay = 0.26 } = {}) {
+  /** Kick de boîte à rythmes : une sinusoïde qui plonge, et le bus qui cède. */
+  kickMachine(t, { level = 0.95, from = 175, to = 42, decay = 0.26, duck = 0.3 } = {}) {
     const g = this._env(t, level, 0.004, decay);
     const o = this._osc('sine', from, t, t + decay + 0.1);
     o.frequency.setValueAtTime(from, t);
     o.frequency.exponentialRampToValueAtTime(to, t + decay * 0.5);
     o.connect(g);
+    this.ducker(t, duck);
+  }
+
+  /** Creuse le bus tenu, puis le laisse remonter. */
+  ducker(t, profondeur = 0.3, remontee = 0.24) {
+    if (!this.duck) return;
+    const g = this.duck.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(profondeur, t);
+    g.linearRampToValueAtTime(1, t + remontee);
+  }
+
+  /**
+   * Supersaw : sept dents de scie désaccordées autour de la note, plus une
+   * sinusoïde une octave dessous. C'est le timbre de l'EDM des années 2010,
+   * et il ne s'obtient pas autrement : c'est le battement entre les voix
+   * désaccordées qui fait toute la largeur du son.
+   */
+  supersaw(t, midi, dur, {
+    level = 0.14, ecart = 16, voix = 7, sub = 0.5, coupe = 5000, dest = null,
+  } = {}) {
+    const f = mtof(midi);
+    const g = this._env(t, level, 0.012, dur, dest || this.duck);
+    const lp = this._filtre('lowpass', coupe, 0.8);
+    for (let i = 0; i < voix; i++) {
+      const detune = ((i - (voix - 1) / 2) / ((voix - 1) / 2)) * ecart;
+      const o = this._osc('sawtooth', f, t, t + dur + 0.08, detune);
+      const v = this.ctx.createGain();
+      v.gain.value = 1 / Math.sqrt(voix);
+      o.connect(v).connect(lp);
+    }
+    lp.connect(g);
+    if (sub > 0) {
+      const sg = this._env(t, level * sub, 0.008, dur, dest || this.duck);
+      this._osc('sine', f / 2, t, t + dur + 0.08).connect(sg);
+    }
+    this.send(g, 0.18, this.reverb);
+  }
+
+  /**
+   * Pincement de synthé : filtre qui se referme vite sur une dent de scie.
+   * C'est le contrechant des accords, il occupe les croches laissées libres.
+   */
+  pincement(t, midi, dur, { level = 0.16, ouverture = 5200, fermeture = 420 } = {}) {
+    const g = this._env(t, level, 0.004, dur, this.duck);
+    const lp = this._filtre('lowpass', ouverture, 6);
+    lp.frequency.setValueAtTime(ouverture, t);
+    lp.frequency.exponentialRampToValueAtTime(fermeture, t + Math.min(dur, 0.25));
+    for (const d of [-8, 8]) this._osc('sawtooth', mtof(midi), t, t + dur + 0.06, d).connect(lp);
+    lp.connect(g);
+    this.send(g, 0.2, this.reverb);
+  }
+
+  /**
+   * Roulement de caisse claire qui accélère : la montée obligatoire avant un
+   * drop. `division` est le nombre de frappes par croche.
+   */
+  rouleau(t, croche, { depart = 1, arrivee = 4, level = 0.3 } = {}) {
+    const division = Math.round(depart + (arrivee - depart));
+    for (let i = 0; i < division; i++) {
+      const quand = t + (i * croche) / division;
+      this.clap(quand, { level: level * (0.5 + (i / division) * 0.5) });
+    }
   }
 
   clap(t, { level = 0.3 } = {}) {
@@ -439,7 +509,7 @@ export class Synth {
 
   /** Basse à filtre résonant, signature de la techno. */
   basse(t, midi, dur, { level = 0.28, cutoff = 900, floor = 220, q = 9, type = 'sawtooth' } = {}) {
-    const g = this._env(t, level, 0.006, dur);
+    const g = this._env(t, level, 0.006, dur, this.duck);
     const lp = this._filtre('lowpass', cutoff, q);
     lp.frequency.setValueAtTime(cutoff, t);
     lp.frequency.exponentialRampToValueAtTime(floor, t + dur);
@@ -485,12 +555,12 @@ export class Synth {
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     const lp = this._filtre('lowpass', 1600);
     for (const d of [-11, 11]) this._osc(type, mtof(midi), t, t + dur + 0.1, d).connect(lp);
-    lp.connect(g).connect(this.master);
+    lp.connect(g).connect(this.duck);
     this.send(g, 0.3, this.reverb);
   }
 
   stab(t, midis, dur, { level = 0.09, echo = 0.35 } = {}) {
-    const g = this._env(t, level, 0.004, dur);
+    const g = this._env(t, level, 0.004, dur, this.duck);
     const lp = this._filtre('lowpass', 2800, 2);
     for (const midi of midis) this._osc('sawtooth', mtof(midi), t, t + dur + 0.05, 6).connect(lp);
     lp.connect(g);

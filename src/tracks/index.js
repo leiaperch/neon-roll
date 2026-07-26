@@ -3,10 +3,10 @@ import house from './house.js';
 import techno from './techno.js';
 import trance from './trance.js';
 import chiptune from './chiptune.js';
-import dnb from './dnb.js';
+import bigroom from './bigroom.js';
 
 /** Le disque, dans l'ordre de lecture : le tempo monte de piste en piste. */
-export const TRACKS = [house, techno, trance, chiptune, dnb].map(buildTrack);
+export const TRACKS = [house, techno, trance, chiptune, bigroom].map(buildTrack);
 
 export const trackById = (id) => TRACKS.find((t) => t.id === id) || TRACKS[0];
 

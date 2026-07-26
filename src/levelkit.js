@@ -69,6 +69,13 @@ export function laserBlocks(row, rowsPerBeat, col) {
   return bank === 'gauche' ? col < 3 : col > 3;
 }
 
+/**
+ * Côté vers lequel une barre balayeuse est poussée au moment où la bille
+ * atteint sa ligne. Déduit de la ligne seule, pour que la génération de la
+ * carte et le rendu tombent forcément d'accord.
+ */
+export const sensBalayage = (row) => (Math.floor(row / 2) % 2 === 0 ? 1 : -1);
+
 /** Le bloc surgissant est sorti un temps sur deux. */
 export function riserUp(row, rowsPerBeat) {
   return Math.floor(row / rowsPerBeat) % 2 === 1;
