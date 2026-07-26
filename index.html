@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Neon Roll</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#070a1c" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="./icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="./icon.svg" />
+<link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div id="hud">
+  <div id="progress">
+    <div id="progress-fill"></div>
+  </div>
+  <div id="hud-row">
+    <span id="progress-label">0 %</span>
+    <span id="diamond-label">0 / 0</span>
+    <button id="mute" type="button">♪ on</button>
+  </div>
+</div>
+
+<div id="checkpoint-flash"><span>checkpoint</span></div>
+
+<div id="overlay" data-panel="menu">
+  <section class="panel" data-for="menu">
+    <h1>Neon<span>Roll</span></h1>
+    <p class="lead">Glisse le doigt pour diriger la bille. Évite les blocs, saute les trous, ramasse les diamants.</p>
+    <button id="btn-start" class="cta" type="button">Jouer</button>
+    <p class="hint">60 secondes, 5 checkpoints, une seule piste.</p>
+  </section>
+
+  <section class="panel" data-for="dead">
+    <h2>Perdue</h2>
+    <p id="death-cause" class="cause"></p>
+    <dl class="stats">
+      <div><dt>Progression</dt><dd id="death-progress">0 %</dd></div>
+      <div><dt>Record</dt><dd id="death-best">0 %</dd></div>
+      <div><dt>Essais</dt><dd id="death-attempts">0</dd></div>
+    </dl>
+    <button id="btn-retry" class="cta" type="button">Reprendre au checkpoint</button>
+    <button id="btn-restart" class="ghost" type="button">Repartir du début</button>
+  </section>
+
+  <section class="panel" data-for="win">
+    <h2>Piste terminée</h2>
+    <dl class="stats">
+      <div><dt>Diamants</dt><dd id="win-diamonds">0 / 0</dd></div>
+      <div><dt>Essais</dt><dd id="win-attempts">0</dd></div>
+    </dl>
+    <button id="btn-replay" class="cta" type="button">Rejouer</button>
+  </section>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
