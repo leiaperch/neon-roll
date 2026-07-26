@@ -72,6 +72,13 @@ export class Synth {
     this.duck.gain.value = 1;
     this.duck.connect(this.master);
 
+    // Bus des percussions, hors grosse caisse. Cymbales, claps et claires y
+    // passent ensemble pour être tenus sous la mélodie : c'est le réglage qui
+    // sépare une rythmique qui porte d'une rythmique qui couvre.
+    this.perc = this.ctx.createGain();
+    this.perc.gain.value = 0.5;
+    this.perc.connect(this.master);
+
     this.banque = new Banque(this.ctx);
     // Coloration de sortie : un rien de grave en moins pour laisser la place
     // à la grosse caisse, un rien d'air en plus pour que ça respire.
@@ -469,7 +476,7 @@ export class Synth {
     src.playbackRate.value = rate;
     const g = this.ctx.createGain();
     g.gain.value = level;
-    src.connect(g).connect(dest || this.master);
+    src.connect(g).connect(dest || this.perc);
     src.start(t);
   }
 
@@ -485,7 +492,7 @@ export class Synth {
    * juste un souffle rythmique.
    */
   shaker(t, { level = 0.12, decay = 0.05 } = {}) {
-    const g = this._env(t, level, 0.004, decay, this._pan((this._grain || 0) - 0.5));
+    const g = this._env(t, level, 0.004, decay, this._pan((this._grain || 0) - 0.5, this.perc));
     const bp = this._filtre('bandpass', 6800, 1.2);
     this._lecteurBruit(t, decay + 0.06).connect(bp).connect(g);
   }
@@ -628,7 +635,7 @@ export class Synth {
     const couches = [[0, 0.5], [0.011, 0.7], [0.024, 1], [0.038, 0.45]];
     const somme = couches.reduce((a, [, m]) => a + m, 0);
     const hp = this._filtre('highpass', 420);
-    hp.connect(this.master);
+    hp.connect(this.perc);
     for (const [offset, mul] of couches) {
       const g = this._env(t + offset, (level * mul) / somme, 0.002, 0.1 * longueur, hp);
       this._lecteurBruit(t + offset, 0.25).connect(this._filtre('bandpass', 1750, 0.7)).connect(g);

@@ -20,15 +20,22 @@ const ACCORDS = [
  * doit être anticipable sans y penser, donc peu de notes et des degrés
  * conjoints entre elles.
  */
-const HOOK = [
-  [[0, 74, 2], [2, 75, 2], [4, 77, 4]],
+/** Trois notes martelées et une tenue : à ce tempo il n'en faut pas plus. */
+const CELLULE = [
+  [[0, 74, 2], [2, 74, 1], [3, 75, 1], [4, 77, 4]],
   [[0, 75, 2], [2, 74, 2], [4, 70, 4]],
-  [[0, 77, 2], [2, 79, 2], [4, 80, 4]],
-  [[0, 79, 2], [2, 77, 2], [4, 75, 4]],
-  [[0, 80, 2], [2, 82, 2], [4, 84, 4]],
-  [[0, 82, 2], [2, 84, 2], [4, 86, 4]], // sommet unique de la phrase
-  [[0, 84, 2], [2, 82, 2], [4, 79, 4]],
-  [[0, 77, 2], [2, 75, 2], [4, 74, 4]],
+];
+const PONT = [
+  [[0, 70, 2], [2, 72, 2], [4, 74, 4]],
+  [[0, 72, 2], [2, 74, 2], [4, 75, 4]],
+];
+const CHUTE = [
+  [[0, 74, 2], [2, 74, 1], [3, 75, 1], [4, 82, 4]],
+  [[0, 79, 4], [4, 74, 4]],
+];
+const HOOK = [
+  CELLULE[0], CELLULE[1], CELLULE[0], CELLULE[1],
+  PONT[0], PONT[1], CHUTE[0], CHUTE[1],
 ];
 
 const CONTRE = [

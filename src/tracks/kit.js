@@ -312,10 +312,13 @@ export function motifEDM({
         } else if (leadAccords) {
           // Lead en accords : la mélodie est empilée avec les notes de
           // l'accord au-dessus, et doublée une octave dessous pour le poids.
+          // La mélodie domine largement, l'harmonie ne fait qu'épaissir.
+          // À niveaux proches l'accord noie la ligne et on n'entend plus de
+          // thème, seulement une masse.
           const empile = harmoniser(note, accord);
           empile.forEach((n, i) => {
             s.supersaw(t, n, duree * croche * 0.95, {
-              level: i === 0 ? 0.11 : 0.07, ecart, sub: i === 0 ? sub : 0, coupe: 7000,
+              level: i === 0 ? 0.17 : 0.035, ecart, sub: i === 0 ? sub : 0, coupe: 7000,
             });
           });
           s.supersaw(t, note - 12, duree * croche * 0.9, { level: 0.05, ecart: ecart * 0.6, sub: 0 });

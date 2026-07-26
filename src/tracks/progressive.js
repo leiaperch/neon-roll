@@ -25,15 +25,27 @@ const ACCORDS = [
  * dessine l'accord et non une mélodie, c'est ce que faisaient mes crochets
  * arpégés.
  */
+/**
+ * Cellule de deux mesures, jouée, rejouée à l'identique, un pont, puis la
+ * cellule une dernière fois avec une autre chute. C'est la forme de la piste
+ * que vous avez trouvée juste, et elle marche parce que la note répétée en
+ * début de cellule donne un point d'accroche avant même la mélodie.
+ */
+const CELLULE = [
+  [[0, 81, 2], [2, 81, 1], [3, 79, 1], [4, 81, 4]],
+  [[0, 79, 2], [2, 77, 2], [4, 74, 4]],
+];
+const PONT = [
+  [[0, 77, 2], [2, 79, 2], [4, 81, 4]],
+  [[0, 81, 2], [2, 79, 2], [4, 77, 4]],
+];
+const CHUTE = [
+  [[0, 81, 2], [2, 81, 1], [3, 79, 1], [4, 84, 4]], // même cellule, sommet plus haut
+  [[0, 84, 4], [4, 81, 4]],
+];
 const HOOK = [
-  [[0, 81, 1], [1, 81, 1], [2, 83, 2], [4, 84, 1], [6, 83, 2]],
-  [[0, 81, 2], [2, 79, 2], [4, 81, 4]],
-  [[0, 83, 1], [1, 83, 1], [2, 84, 2], [4, 86, 1], [6, 84, 2]],
-  [[0, 83, 2], [2, 81, 2], [4, 84, 4]],
-  [[0, 84, 1], [1, 86, 1], [2, 87, 2], [4, 86, 1], [6, 84, 2]],
-  [[0, 86, 2], [2, 88, 2], [4, 89, 4]], // climax : la seule fois qu'on va si haut
-  [[0, 88, 1], [1, 86, 1], [2, 84, 2], [4, 83, 1], [6, 81, 2]],
-  [[0, 79, 2], [2, 78, 2], [4, 74, 4]], // la descente qui fait du sommet un sommet
+  CELLULE[0], CELLULE[1], CELLULE[0], CELLULE[1],
+  PONT[0], PONT[1], CHUTE[0], CHUTE[1],
 ];
 
 const CONTRE = [

@@ -19,15 +19,22 @@ const ACCORDS = [
  * seul grand saut est celui qui atteint le sommet à la sixième mesure, et il
  * est aussitôt comblé par la descente qui suit, comme le veut la convention.
  */
-const HOOK = [
+/** Même principe : une cellule qui revient, et une seule chute différente. */
+const CELLULE = [
+  [[0, 86, 3], [3, 84, 1], [4, 86, 4]],
+  [[0, 84, 2], [2, 81, 2], [4, 79, 4]],
+];
+const PONT = [
   [[0, 81, 3], [3, 82, 1], [4, 84, 4]],
-  [[0, 82, 2], [2, 81, 2], [4, 79, 4]],
-  [[0, 82, 3], [3, 84, 1], [4, 86, 4]],
-  [[0, 84, 2], [2, 82, 2], [4, 81, 4]],
-  [[0, 84, 3], [3, 86, 1], [4, 88, 4]],
-  [[0, 86, 2], [2, 89, 2], [4, 91, 4]], // le seul saut large, et le sommet
-  [[0, 89, 3], [3, 86, 1], [4, 84, 4]], // il est comblé par degrés en redescendant
   [[0, 82, 2], [2, 81, 2], [4, 77, 4]],
+];
+const CHUTE = [
+  [[0, 86, 3], [3, 84, 1], [4, 89, 4]], // le sommet, atteint une seule fois
+  [[0, 86, 4], [4, 81, 4]],
+];
+const HOOK = [
+  CELLULE[0], CELLULE[1], CELLULE[0], CELLULE[1],
+  PONT[0], PONT[1], CHUTE[0], CHUTE[1],
 ];
 
 const CONTRE = [
