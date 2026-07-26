@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import { World } from './world.js';
 import { Input } from './input.js';
-import { Music } from './music.js';
+import { Synth } from './synth.js';
 import { Ui } from './ui.js';
+import { Save } from './save.js';
 import { Game, STATE } from './game.js';
-import { validate } from './level.js';
+import { TRACKS, validateAll } from './tracks/index.js';
 
-const errors = validate();
-if (errors.length) console.warn('Niveau incohérent :', errors);
+for (const piste of validateAll()) {
+  if (piste.erreurs.length) console.warn(`piste ${piste.id} incohérente :`, piste.erreurs);
+}
 
 // `?debug` garde le tampon de dessin lisible, pour les captures d'écran.
 const DEBUG = new URLSearchParams(location.search).has('debug');
@@ -22,13 +24,16 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = 1;
 
 const world = new World(renderer);
 const input = new Input(canvas);
-const music = new Music();
+const synth = new Synth();
 const ui = new Ui(document.body);
-const game = new Game(world, input, music, ui);
+const save = new Save();
+const game = new Game(world, input, synth, ui, save);
+
+let courante = TRACKS[0];
 
 function resize() {
   const w = window.innerWidth;
@@ -39,31 +44,67 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+/** Charge une piste et présente sa fiche, sans encore lancer la lecture. */
+function select(track) {
+  courante = track;
+  ui.applyPalette(track);
+  game.load(track);
+  world.updateCamera(game.player, 0);
+  ui.showBrief(track, save);
+}
+
 async function launch(fromScratch) {
-  await music.init();
+  await synth.init();
   game.start(fromScratch);
 }
 
+function retourPochette() {
+  synth.stop();
+  game.state = STATE.MENU;
+  ui.buildSleeve(TRACKS, save);
+  ui.showSleeve();
+}
+
+ui.onSelect = select;
 ui.bind({
-  onStart: () => launch(true),
+  onPlay: () => launch(true),
   onRetry: () => launch(false),
   onRestart: () => launch(true),
+  onSleeve: retourPochette,
+  onNext: () => {
+    const suivante = TRACKS[(TRACKS.indexOf(courante) + 1) % TRACKS.length];
+    select(suivante);
+  },
   onMute: () => {
-    music.setMuted(!music.muted);
-    ui.setMuted(music.muted);
+    synth.setMuted(!synth.muted);
+    ui.setMuted(synth.muted);
   },
 });
-ui.setMuted(false);
-ui.showMenu();
 
-// Pendant l'animation de chute, le panneau n'est pas encore là : une tape
-// sur la piste relance immédiatement, sans attendre.
+ui.setMuted(false);
+ui.applyPalette(courante);
+game.load(courante);
+ui.buildSleeve(TRACKS, save);
+ui.showSleeve();
+
+// Pendant l'animation de chute, le panneau n'est pas encore là : une tape sur
+// la piste relance immédiatement, sans attendre.
 input.onFirstTouch = () => {
   if (game.state === STATE.DYING && !ui.overlayVisible) launch(false);
 };
 
-// Point d'entrée unique pour inspecter ou piloter le jeu depuis la console.
-window.__neonroll = { game, world, renderer, music, input, ui, THREE };
+window.__sillon = {
+  game, world, renderer, synth, input, ui, save, TRACKS, THREE,
+  /** Vérifie qu'une piste, ou toutes, restent franchissables. */
+  async autoplay(id) {
+    const { autoplay } = await import('./autoplay.js');
+    const cibles = id ? TRACKS.filter((t) => t.id === id) : TRACKS;
+    const rapport = cibles.map((t) => autoplay(game, world, input, t));
+    game.load(courante);
+    ui.showSleeve();
+    return rapport;
+  },
+};
 
 let last = performance.now();
 renderer.setAnimationLoop((now) => {
@@ -73,10 +114,6 @@ renderer.setAnimationLoop((now) => {
   else world.updateCamera(game.player, 0);
   renderer.render(world.scene, world.camera);
 });
-
-// Vue de présentation tant que la partie n'a pas démarré.
-world.camera.position.set(0, 5.4, -9);
-world.updateCamera(game.player, 0);
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => {

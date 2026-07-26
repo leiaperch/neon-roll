@@ -1,9 +1,20 @@
-import { validate, TOTAL_ROWS, checkpointRows } from '../src/level.js';
+import { validateAll } from '../src/tracks/index.js';
 
-const errors = validate();
-if (errors.length) {
-  console.error(`Niveau invalide (${errors.length} problème(s)) :`);
-  for (const e of errors) console.error('  -', e);
+const report = validateAll();
+let fautes = 0;
+
+for (const piste of report) {
+  if (piste.erreurs.length) {
+    fautes += piste.erreurs.length;
+    console.error(`✗ ${piste.id} — ${piste.titre} (${piste.lignes} lignes)`);
+    for (const e of piste.erreurs) console.error('   ', e);
+  } else {
+    console.log(`✓ ${piste.id} — ${piste.titre} : ${piste.lignes} lignes, ${piste.secondes} s`);
+  }
+}
+
+if (fautes) {
+  console.error(`\n${fautes} problème(s).`);
   process.exit(1);
 }
-console.log(`Niveau valide : ${TOTAL_ROWS} lignes, checkpoints aux lignes ${checkpointRows().join(', ')}.`);
+console.log(`\n${report.length} pistes valides.`);

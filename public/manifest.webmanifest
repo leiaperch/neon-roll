@@ -1,13 +1,13 @@
 {
-  "name": "Neon Roll",
-  "short_name": "NeonRoll",
-  "description": "Course d'adresse sur piste néon, synchronisée à la musique.",
+  "name": "SILLON",
+  "short_name": "SILLON",
+  "description": "Cinq pistes, cinq genres. Un diamant de platine lit le disque et vous le dirigez au doigt.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
   "orientation": "portrait",
-  "background_color": "#05070f",
-  "theme_color": "#070a1c",
+  "background_color": "#0b0a09",
+  "theme_color": "#0b0a09",
   "icons": [
     { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }

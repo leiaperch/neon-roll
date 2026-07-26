@@ -1,7 +1,7 @@
 /* Service worker minimal : le jeu tient dans quelques fichiers statiques,
    on les sert depuis le cache pour qu'il démarre hors ligne. */
 
-const CACHE = 'neon-roll-v1';
+const CACHE = 'sillon-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

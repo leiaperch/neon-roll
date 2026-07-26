@@ -2,9 +2,9 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8" />
-<title>Neon Roll</title>
+<title>SILLON</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
-<meta name="theme-color" content="#070a1c" />
+<meta name="theme-color" content="#0b0a09" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <link rel="manifest" href="./manifest.webmanifest" />
@@ -15,48 +15,95 @@
 <body>
 <canvas id="scene"></canvas>
 
-<div id="hud">
-  <div id="progress">
-    <div id="progress-fill"></div>
+<header id="hud" hidden>
+  <div class="hud-line">
+    <span id="hud-code" class="mono">A1</span>
+    <span id="hud-title">—</span>
+    <span id="hud-crowns" class="mono">♛ 0/3</span>
+    <button id="mute" class="mono" type="button">SON</button>
   </div>
-  <div id="hud-row">
-    <span id="progress-label">0 %</span>
-    <span id="diamond-label">0 / 0</span>
-    <button id="mute" type="button">♪ on</button>
+  <div id="groove"><div id="groove-fill"></div><div id="groove-head"></div></div>
+  <div class="hud-line hud-line--sub mono">
+    <span id="hud-progress">0 %</span>
+    <span id="hud-diamonds">◆ 0/0</span>
+    <span id="hud-bpm">— BPM</span>
   </div>
-</div>
+</header>
 
-<div id="checkpoint-flash"><span>checkpoint</span></div>
+<div id="flash-checkpoint" class="flash"><span>checkpoint</span></div>
+<div id="flash-crown" class="flash"><span>couronne</span></div>
 
-<div id="overlay" data-panel="menu">
-  <section class="panel" data-for="menu">
-    <h1>Neon<span>Roll</span></h1>
-    <p class="lead">Glisse le doigt pour diriger la bille. Évite les blocs, saute les trous, ramasse les diamants.</p>
-    <button id="btn-start" class="cta" type="button">Jouer</button>
-    <p class="hint">60 secondes, 5 checkpoints, une seule piste.</p>
+<main id="overlay" data-panel="sleeve">
+
+  <section class="panel panel--sleeve" data-for="sleeve">
+    <div class="sleeve-head">
+      <h1 class="wordmark">SILLON</h1>
+      <p class="mono kicker">33 ⅓ tr/min · 5 pistes · face A / face B</p>
+    </div>
+    <p class="blurb">Un diamant de platine lit le disque. Chaque piste est gravée
+      dans son propre genre : la musique dicte le tempo, le tempo dicte la vitesse,
+      et la piste est écrite mesure par mesure sur la même grille.</p>
+    <ol id="tracklist" class="tracklist"></ol>
+    <p class="mono footnote"><span id="sleeve-total">—</span> · glisser le doigt pour diriger</p>
   </section>
 
-  <section class="panel" data-for="dead">
-    <h2>Perdue</h2>
-    <p id="death-cause" class="cause"></p>
-    <dl class="stats">
-      <div><dt>Progression</dt><dd id="death-progress">0 %</dd></div>
+  <section class="panel panel--brief" data-for="brief">
+    <p class="mono kicker"><span id="brief-face">Face A</span> · piste <span id="brief-index">1</span></p>
+    <h2 id="brief-title">—</h2>
+    <p id="brief-genre" class="mono genre">—</p>
+    <p id="brief-tagline" class="blurb">—</p>
+    <dl class="stats mono">
+      <div><dt>Tempo</dt><dd id="brief-bpm">—</dd></div>
+      <div><dt>Durée</dt><dd id="brief-length">—</dd></div>
+      <div><dt>Record</dt><dd id="brief-best">—</dd></div>
+    </dl>
+    <button id="btn-play" class="cta" type="button">Lecture</button>
+    <button id="btn-back" class="ghost" type="button">Retour à la pochette</button>
+  </section>
+
+  <section class="panel panel--stamp" data-for="dead">
+    <p class="mono kicker">lecture interrompue</p>
+    <h2 id="death-cause">—</h2>
+    <dl class="stats mono">
+      <div><dt>Sillon</dt><dd id="death-progress">0 %</dd></div>
       <div><dt>Record</dt><dd id="death-best">0 %</dd></div>
       <div><dt>Essais</dt><dd id="death-attempts">0</dd></div>
     </dl>
     <button id="btn-retry" class="cta" type="button">Reprendre au checkpoint</button>
-    <button id="btn-restart" class="ghost" type="button">Repartir du début</button>
+    <button id="btn-restart" class="ghost" type="button">Reprendre au début</button>
+    <button id="btn-sleeve" class="ghost" type="button">Pochette</button>
   </section>
 
-  <section class="panel" data-for="win">
-    <h2>Piste terminée</h2>
-    <dl class="stats">
-      <div><dt>Diamants</dt><dd id="win-diamonds">0 / 0</dd></div>
+  <section class="panel panel--stamp" data-for="win">
+    <p class="mono kicker">face lue jusqu’au bout</p>
+    <h2 id="win-title">—</h2>
+    <dl class="stats mono">
+      <div><dt>Couronnes</dt><dd id="win-crowns">0/3</dd></div>
+      <div><dt>Diamants</dt><dd id="win-diamonds">0/0</dd></div>
       <div><dt>Essais</dt><dd id="win-attempts">0</dd></div>
     </dl>
-    <button id="btn-replay" class="cta" type="button">Rejouer</button>
+    <button id="btn-next" class="cta" type="button">Piste suivante</button>
+    <button id="btn-replay" class="ghost" type="button">Rejouer</button>
+    <button id="btn-sleeve2" class="ghost" type="button">Pochette</button>
   </section>
-</div>
+
+</main>
+
+<template id="tpl-track">
+  <li class="track">
+    <button type="button" class="track-btn">
+      <span class="track-code mono"></span>
+      <span class="track-main">
+        <span class="track-title"></span>
+        <span class="track-genre mono"></span>
+      </span>
+      <span class="track-meta mono">
+        <span class="track-best"></span>
+        <span class="track-crowns"></span>
+      </span>
+    </button>
+  </li>
+</template>
 
 <script type="module" src="./src/main.js"></script>
 </body>

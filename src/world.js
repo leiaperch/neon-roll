@@ -1,16 +1,24 @@
 import * as THREE from 'three';
 import {
   COLS, TILE, TRACK_HALF, BALL_RADIUS, BLOCK_SIZE, BLOCK_HEIGHT,
-  SECTIONS, SKY_TOP, SKY_BOTTOM, FOG_COLOR, FOG_NEAR, FOG_FAR,
-  ROW_DURATION, BPM, SWEEPER_PERIOD_BEATS, SLIDER_PERIOD_BEATS,
+  rowDuration, trackSpeed, cameraDistance,
 } from './config.js';
 import {
-  ROWS, TOTAL_ROWS, cellAt, BLOCK, DIAMOND, JUMP, CHECKPOINT, SWEEPER, SLIDER, VOID,
-} from './level.js';
+  VOID, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT, SWEEPER, SLIDER,
+  LASER, RISER, BELT_R, BELT_L, PLATFORM, laserBank, riserUp,
+} from './levelkit.js';
 
-const BEAT = 60 / BPM;
+const SWEEPER_PERIOD_BEATS = 6;
+const SLIDER_PERIOD_BEATS = 6;
+const PLATFORM_PERIOD_BEATS = 5;
+const PLATFORM_HALF = TILE * 1.5; // trois colonnes de large
+const PLATFORM_AMPLITUDE = TILE; // une colonne de débattement
+const LASER_HALF = TILE * 1.5;
+const LASER_CENTER = TILE * 2; // centre des colonnes 0-2 et 4-6
 
-/** Accumulateur de triangles : un seul mesh par matériau. */
+export const colX = (col) => (col - (COLS - 1) / 2) * TILE;
+
+/** Accumulateur de triangles : un seul maillage par matériau. */
 class Builder {
   constructor() {
     this.pos = [];
@@ -18,8 +26,11 @@ class Builder {
     this.col = [];
   }
 
-  /** Boîte alignée sur les axes, normales à plat, teinte assombrie par face. */
-  box(cx, cy, cz, sx, sy, sz, color, shade = { top: 1, side: 0.72, bottom: 0.45 }) {
+  get empty() {
+    return this.pos.length === 0;
+  }
+
+  box(cx, cy, cz, sx, sy, sz, color, shade = { top: 1, side: 0.74, bottom: 0.45 }) {
     const hx = sx / 2, hy = sy / 2, hz = sz / 2;
     const v = [
       [cx - hx, cy - hy, cz - hz], [cx + hx, cy - hy, cz - hz],
@@ -28,12 +39,12 @@ class Builder {
       [cx + hx, cy + hy, cz + hz], [cx - hx, cy + hy, cz + hz],
     ];
     const faces = [
-      [[4, 5, 6], [4, 6, 7], [0, 0, 1], shade.side], // +z
-      [[1, 0, 3], [1, 3, 2], [0, 0, -1], shade.side], // -z
-      [[5, 1, 2], [5, 2, 6], [1, 0, 0], shade.side], // +x
-      [[0, 4, 7], [0, 7, 3], [-1, 0, 0], shade.side], // -x
-      [[3, 7, 6], [3, 6, 2], [0, 1, 0], shade.top], // +y
-      [[4, 0, 1], [4, 1, 5], [0, -1, 0], shade.bottom], // -y
+      [[4, 5, 6], [4, 6, 7], [0, 0, 1], shade.side],
+      [[1, 0, 3], [1, 3, 2], [0, 0, -1], shade.side],
+      [[5, 1, 2], [5, 2, 6], [1, 0, 0], shade.side],
+      [[0, 4, 7], [0, 7, 3], [-1, 0, 0], shade.side],
+      [[3, 7, 6], [3, 6, 2], [0, 1, 0], shade.top],
+      [[4, 0, 1], [4, 1, 5], [0, -1, 0], shade.bottom],
     ];
     const c = new THREE.Color(color);
     for (const [t1, t2, n, mul] of faces) {
@@ -47,30 +58,26 @@ class Builder {
     }
   }
 
-  build(material) {
+  geometry() {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(this.nor, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
     g.computeBoundingSphere();
-    return new THREE.Mesh(g, material);
+    return g;
   }
 }
 
-const colX = (col) => (col - (COLS - 1) / 2) * TILE;
-const rowZ = (row) => row * TILE;
-const sectionOf = (row) => SECTIONS[Math.min(SECTIONS.length - 1, Math.floor(row / 32))];
-
-/** Dégradé vertical utilisé à la fois en fond et en éclairage d'ambiance. */
-function skyTexture() {
+function skyTexture(top, bottom) {
   const c = document.createElement('canvas');
   c.width = 8;
   c.height = 128;
   const ctx = c.getContext('2d');
+  const hex = (v) => `#${v.toString(16).padStart(6, '0')}`;
   const grad = ctx.createLinearGradient(0, 0, 0, 128);
-  grad.addColorStop(0, `#${SKY_TOP.toString(16).padStart(6, '0')}`);
-  grad.addColorStop(0.62, `#${SKY_BOTTOM.toString(16).padStart(6, '0')}`);
-  grad.addColorStop(1, '#050713');
+  grad.addColorStop(0, hex(top));
+  grad.addColorStop(0.62, hex(bottom));
+  grad.addColorStop(1, hex(top));
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 8, 128);
   const tex = new THREE.CanvasTexture(c);
@@ -79,9 +86,8 @@ function skyTexture() {
   return tex;
 }
 
-/** Champ d'étoiles fixe, purement décoratif, une seule draw call. */
-function starfield() {
-  const count = 600;
+function starfield(color) {
+  const count = 500;
   const pos = new Float32Array(count * 3);
   let seed = 7919;
   const rnd = () => {
@@ -97,222 +103,399 @@ function starfield() {
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const m = new THREE.PointsMaterial({ color: 0x9fc7ff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.7, fog: false });
+  const m = new THREE.PointsMaterial({
+    color, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.6, fog: false,
+  });
   const points = new THREE.Points(g, m);
   points.frustumCulled = false;
   return points;
+}
+
+/** Petite couronne en volume, réutilisée par toutes les instances. */
+function crownGeometry(color) {
+  const b = new Builder();
+  b.box(0, 0.28, 0, 0.9, 0.36, 0.9, color);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    b.box(Math.cos(a) * 0.36, 0.66, Math.sin(a) * 0.36, 0.22, 0.5, 0.22, color);
+  }
+  b.box(0, 0.52, 0, 0.62, 0.14, 0.62, color);
+  return b.geometry();
 }
 
 export class World {
   constructor(renderer) {
     this.renderer = renderer;
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(FOG_COLOR, FOG_NEAR, FOG_FAR);
+    this.camera = new THREE.PerspectiveCamera(62, 1, 0.1, 300);
+    this.pmrem = new THREE.PMREMGenerator(renderer);
 
-    const sky = skyTexture();
-    this.scene.background = sky;
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    this.scene.environment = pmrem.fromEquirectangular(sky).texture;
-    pmrem.dispose();
+    this.hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 0.55);
+    this.sun = new THREE.DirectionalLight(0xffffff, 1.15);
+    this.sun.position.set(6, 14, -6);
+    this.scene.add(this.hemi, this.sun, this.sun.target);
 
-    this.camera = new THREE.PerspectiveCamera(62, 1, 0.1, 260);
-
-    const hemi = new THREE.HemisphereLight(0xbcd8ff, 0x0a0f24, 0.55);
-    this.scene.add(hemi);
-    const sun = new THREE.DirectionalLight(0xffffff, 1.15);
-    sun.position.set(6, 14, -6);
-    this.scene.add(sun);
-    this.sun = sun;
-
-    // Les étoiles suivent la caméra : elles doivent se lire comme infiniment loin.
-    this.stars = starfield();
-    this.scene.add(this.stars);
-
-    this._buildTrack();
-    this._buildDiamonds();
-    this._buildBall();
-  }
-
-  _buildTrack() {
-    const floor = new Builder();
-    const blocks = new Builder();
-    const neon = new Builder();
-
-    for (let row = 0; row < TOTAL_ROWS; row++) {
-      const sec = sectionOf(row);
-      const z = rowZ(row);
-      for (let col = 0; col < COLS; col++) {
-        const ch = cellAt(row, col);
-        if (ch === VOID) continue;
-        const x = colX(col);
-
-        // Damier discret pour lire la vitesse.
-        const tint = new THREE.Color(sec.floor).multiplyScalar((row + col) % 2 ? 1.14 : 0.94);
-        floor.box(x, -0.3, z, TILE * 0.97, 0.6, TILE * 0.97, tint.getHex());
-
-        if (ch === BLOCK) {
-          blocks.box(x, BLOCK_HEIGHT / 2, z, BLOCK_SIZE, BLOCK_HEIGHT, BLOCK_SIZE, sec.block);
-          neon.box(x, BLOCK_HEIGHT + 0.06, z, BLOCK_SIZE * 0.62, 0.12, BLOCK_SIZE * 0.62, sec.accent);
-        } else if (ch === JUMP) {
-          neon.box(x, 0.09, z, TILE * 0.8, 0.18, TILE * 0.8, 0x7cf6b0);
-        } else if (ch === CHECKPOINT) {
-          // L'arche occupe toute la ligne, on ne la dessine qu'une fois.
-          if (col === ROWS[row].indexOf(CHECKPOINT)) this._checkpointArch(neon, z, sec.accent);
-        }
-      }
-      // Liseré lumineux sur les bords extérieurs de la piste.
-      const left = ROWS[row].indexOf('#') >= 0 ? this._edge(row, -1) : null;
-      const right = this._edge(row, 1);
-      if (left !== null) neon.box(colX(left) - TILE * 0.52, 0.02, z, 0.12, 0.1, TILE * 0.97, sec.accent);
-      if (right !== null) neon.box(colX(right) + TILE * 0.52, 0.02, z, 0.12, 0.1, TILE * 0.97, sec.accent);
-    }
-
-    const solidMat = new THREE.MeshStandardMaterial({
-      vertexColors: true, roughness: 0.55, metalness: 0.05,
-      envMapIntensity: 0.5, side: THREE.DoubleSide, flatShading: true,
-    });
-    const neonMat = new THREE.MeshBasicMaterial({
-      vertexColors: true, toneMapped: false, side: THREE.DoubleSide, fog: true,
-    });
-
-    this.floorMesh = floor.build(solidMat);
-    this.blockMesh = blocks.build(solidMat);
-    this.neonMesh = neon.build(neonMat);
-    this.scene.add(this.floorMesh, this.blockMesh, this.neonMesh);
-
-    this._buildMovers();
-  }
-
-  /** Colonne de sol la plus extérieure d'une ligne, ou null si la ligne est vide. */
-  _edge(row, dir) {
-    const line = ROWS[row];
-    if (dir < 0) {
-      for (let c = 0; c < COLS; c++) if (line[c] !== VOID) return c;
-    } else {
-      for (let c = COLS - 1; c >= 0; c--) if (line[c] !== VOID) return c;
-    }
-    return null;
-  }
-
-  _checkpointArch(neon, z, color) {
-    for (const side of [-1, 1]) {
-      neon.box(side * (TRACK_HALF + 0.9), 1.6, z, 0.3, 3.2, 0.3, color);
-    }
-    neon.box(0, 3.25, z, (TRACK_HALF + 1.05) * 2, 0.3, 0.3, color);
-  }
-
-  /**
-   * Obstacles mobiles. Leur position est une fonction pure du temps musical :
-   * quand la bille atteint la ligne, la barre est toujours à la même place.
-   */
-  _buildMovers() {
-    this.movers = [];
-    const group = new THREE.Group();
-    for (let row = 0; row < TOTAL_ROWS; row++) {
-      for (let col = 0; col < COLS; col++) {
-        const ch = cellAt(row, col);
-        if (ch !== SWEEPER && ch !== SLIDER) continue;
-        const sec = sectionOf(row);
-        const isSweeper = ch === SWEEPER;
-        const width = isSweeper ? TILE * 3 : BLOCK_SIZE;
-        const geo = new THREE.BoxGeometry(width, BLOCK_HEIGHT, isSweeper ? TILE * 0.8 : BLOCK_SIZE);
-        const mat = new THREE.MeshStandardMaterial({
-          color: sec.block, roughness: 0.4, metalness: 0.1,
-          emissive: new THREE.Color(sec.block).multiplyScalar(0.25), flatShading: true,
-        });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(0, BLOCK_HEIGHT / 2, rowZ(row));
-        group.add(mesh);
-        // Un obstacle sur deux balaie dans l'autre sens : le côté sûr alterne.
-        const dir = this.movers.length % 2 === 0 ? 1 : -1;
-        this.movers.push({
-          mesh,
-          row,
-          type: ch,
-          anchorX: colX(col),
-          halfW: width / 2,
-          halfD: (isSweeper ? TILE * 0.8 : BLOCK_SIZE) / 2,
-          amplitude: (isSweeper ? TRACK_HALF - TILE : TILE) * dir,
-          period: (isSweeper ? SWEEPER_PERIOD_BEATS : SLIDER_PERIOD_BEATS) * BEAT,
-          height: BLOCK_HEIGHT,
-          x: 0,
-        });
-      }
-    }
-    this.scene.add(group);
-  }
-
-  _buildDiamonds() {
-    this.diamonds = [];
-    for (let row = 0; row < TOTAL_ROWS; row++) {
-      for (let col = 0; col < COLS; col++) {
-        if (cellAt(row, col) === DIAMOND) {
-          this.diamonds.push({ row, col, x: colX(col), z: rowZ(row), taken: false });
-        }
-      }
-    }
-    const geo = new THREE.OctahedronGeometry(0.42);
-    const mat = new THREE.MeshBasicMaterial({ color: 0x8ef6ff, toneMapped: false });
-    this.diamondMesh = new THREE.InstancedMesh(geo, mat, Math.max(1, this.diamonds.length));
-    this.diamondMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.diamondMesh.frustumCulled = false;
-    this.scene.add(this.diamondMesh);
+    this.trackGroup = null;
+    this.track = null;
     this._dummy = new THREE.Object3D();
+    this._color = new THREE.Color();
+    this._buildBall();
   }
 
   _buildBall() {
     const geo = new THREE.IcosahedronGeometry(BALL_RADIUS, 2);
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0xf6f9ff, roughness: 0.25, metalness: 0.2,
-      emissive: 0x2a4a8a, emissiveIntensity: 0.35, envMapIntensity: 0.9,
+    this.ballMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffffff, roughness: 0.22, metalness: 0.35,
+      emissive: 0x222222, emissiveIntensity: 0.3, envMapIntensity: 1.1,
     });
-    this.ball = new THREE.Mesh(geo, mat);
+    this.ball = new THREE.Mesh(geo, this.ballMaterial);
     this.scene.add(this.ball);
 
-    // Ombre simulée : un disque sombre plaqué au sol, gratuit sur mobile.
-    const shadowGeo = new THREE.CircleGeometry(BALL_RADIUS * 1.3, 20);
-    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false });
-    this.ballShadow = new THREE.Mesh(shadowGeo, shadowMat);
+    const shadowGeo = new THREE.CircleGeometry(BALL_RADIUS * 1.35, 20);
+    this.ballShadow = new THREE.Mesh(shadowGeo, new THREE.MeshBasicMaterial({
+      color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false,
+    }));
     this.ballShadow.rotation.x = -Math.PI / 2;
     this.scene.add(this.ballShadow);
   }
 
-  /** Position d'un obstacle mobile à l'instant musical `t`. */
+  /** Remplace entièrement la piste affichée. */
+  load(track) {
+    this.dispose();
+    this.track = track;
+    const p = track.palette;
+    this.rowDuration = rowDuration(track.bpm, track.rowsPerBeat);
+    this.speed = trackSpeed(track.bpm, track.rowsPerBeat);
+    this.cameraBack = cameraDistance(this.speed);
+
+    const sky = skyTexture(p.skyTop, p.skyBottom);
+    this.scene.background = sky;
+    this.scene.environment = this.pmrem.fromEquirectangular(sky).texture;
+    this.scene.fog = new THREE.Fog(p.fog, 34, 42 + this.speed * 6);
+    this.hemi.color.set(p.skyBottom);
+    this.hemi.groundColor.set(p.fog);
+    this.ballMaterial.color.set(p.ball);
+    // Un simple liseré de couleur : au-delà, la bille prend la teinte de la
+    // piste et cesse de se détacher du décor.
+    this.ballMaterial.emissive.set(p.accent);
+    this.ballMaterial.emissiveIntensity = 0.1;
+
+    this.trackGroup = new THREE.Group();
+    this.scene.add(this.trackGroup);
+    this.trackGroup.add(starfield(p.neon));
+
+    this._buildStatic();
+    this._buildMovers();
+    this._buildPickups();
+    this._buildDecor();
+  }
+
+  dispose() {
+    if (!this.trackGroup) return;
+    this.trackGroup.traverse((obj) => {
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) {
+        const list = Array.isArray(obj.material) ? obj.material : [obj.material];
+        for (const m of list) m.dispose();
+      }
+    });
+    this.scene.remove(this.trackGroup);
+    this.trackGroup = null;
+  }
+
+  _materials() {
+    return {
+      solide: new THREE.MeshStandardMaterial({
+        vertexColors: true, roughness: 0.55, metalness: 0.08,
+        envMapIntensity: 0.55, side: THREE.DoubleSide, flatShading: true,
+      }),
+      neon: new THREE.MeshBasicMaterial({
+        vertexColors: true, toneMapped: false, side: THREE.DoubleSide,
+      }),
+    };
+  }
+
+  _buildStatic() {
+    const { rows, totalRows, grid, palette: p } = this.track;
+    const solide = new Builder();
+    const neon = new Builder();
+
+    for (let row = 0; row < totalRows; row++) {
+      const z = row * TILE;
+      const teinte = p.floors[row % p.floors.length];
+      for (let col = 0; col < COLS; col++) {
+        const ch = grid.cellAt(row, col);
+        if (ch === VOID || ch === PLATFORM) continue;
+        const x = colX(col);
+        const base = new THREE.Color(teinte).multiplyScalar((row + col) % 2 ? 1.1 : 0.92);
+        solide.box(x, -0.3, z, TILE * 0.97, 0.6, TILE * 0.97, base.getHex());
+
+        if (ch === BLOCK) {
+          solide.box(x, BLOCK_HEIGHT / 2, z, BLOCK_SIZE, BLOCK_HEIGHT, BLOCK_SIZE, p.block);
+          neon.box(x, BLOCK_HEIGHT + 0.05, z, BLOCK_SIZE * 0.6, 0.12, BLOCK_SIZE * 0.6, p.accent);
+        } else if (ch === JUMP) {
+          neon.box(x, 0.09, z, TILE * 0.82, 0.18, TILE * 0.82, p.neon);
+          solide.box(x, 0.05, z, TILE * 0.92, 0.1, TILE * 0.92, p.accent);
+        } else if (ch === BELT_R || ch === BELT_L) {
+          const dir = ch === BELT_R ? 1 : -1;
+          solide.box(x, 0.04, z, TILE * 0.94, 0.12, TILE * 0.94, p.block);
+          // Chevrons orientés dans le sens de la poussée.
+          for (let i = -1; i <= 1; i++) {
+            neon.box(x + i * 0.5 * dir, 0.13, z + i * 0.35, 0.34, 0.08, 0.9, p.neon);
+          }
+        } else if (ch === CHECKPOINT && col === rows[row].indexOf(CHECKPOINT)) {
+          for (const side of [-1, 1]) neon.box(side * (TRACK_HALF + 0.9), 1.6, z, 0.3, 3.2, 0.3, p.accent);
+          neon.box(0, 3.25, z, (TRACK_HALF + 1.05) * 2, 0.3, 0.3, p.accent);
+        }
+      }
+
+      const gauche = this._edge(row, -1);
+      const droite = this._edge(row, 1);
+      if (gauche !== null) neon.box(colX(gauche) - TILE * 0.52, 0.02, z, 0.12, 0.1, TILE * 0.97, p.accent);
+      if (droite !== null) neon.box(colX(droite) + TILE * 0.52, 0.02, z, 0.12, 0.1, TILE * 0.97, p.accent);
+    }
+
+    const mats = this._materials();
+    this.trackGroup.add(new THREE.Mesh(solide.geometry(), mats.solide));
+    this.trackGroup.add(new THREE.Mesh(neon.geometry(), mats.neon));
+  }
+
+  _edge(row, dir) {
+    const line = this.track.rows[row];
+    if (dir < 0) {
+      for (let c = 0; c < COLS; c++) if (line[c] !== VOID && line[c] !== PLATFORM) return c;
+    } else {
+      for (let c = COLS - 1; c >= 0; c--) if (line[c] !== VOID && line[c] !== PLATFORM) return c;
+    }
+    return null;
+  }
+
+  _buildDecor() {
+    if (!this.track.decor) return;
+    const solide = new Builder();
+    const neon = new Builder();
+    this.track.decor({
+      rows: this.track.totalRows,
+      TILE,
+      colX,
+      rowZ: (row) => row * TILE,
+      palette: this.track.palette,
+      box: (...args) => solide.box(...args),
+      neon: (...args) => neon.box(...args),
+    });
+    const mats = this._materials();
+    if (!solide.empty) this.trackGroup.add(new THREE.Mesh(solide.geometry(), mats.solide));
+    if (!neon.empty) this.trackGroup.add(new THREE.Mesh(neon.geometry(), mats.neon));
+  }
+
+  /**
+   * Obstacles animés. Leur position est une fonction pure du temps musical,
+   * donc leur état au moment où la bille atteint la ligne est toujours le même.
+   */
+  _buildMovers() {
+    const { grid, totalRows, palette: p, rowsPerBeat, bpm } = this.track;
+    const beat = 60 / bpm;
+    this.movers = [];
+    this.risers = [];
+    this.lasers = [];
+
+    const mobileMat = () => new THREE.MeshStandardMaterial({
+      color: p.block, roughness: 0.4, metalness: 0.12,
+      emissive: new THREE.Color(p.block).multiplyScalar(0.22), flatShading: true,
+    });
+
+    const platesVues = new Set();
+    for (let row = 0; row < totalRows; row++) {
+      for (let col = 0; col < COLS; col++) {
+        const ch = grid.cellAt(row, col);
+
+        if (ch === SWEEPER || ch === SLIDER) {
+          const balayeuse = ch === SWEEPER;
+          const largeur = balayeuse ? TILE * 3 : BLOCK_SIZE;
+          const profondeur = balayeuse ? TILE * 0.8 : BLOCK_SIZE;
+          const mesh = new THREE.Mesh(
+            new THREE.BoxGeometry(largeur, BLOCK_HEIGHT, profondeur), mobileMat());
+          mesh.position.set(0, BLOCK_HEIGHT / 2, row * TILE);
+          this.trackGroup.add(mesh);
+          // Un obstacle sur deux balaie dans l'autre sens : le côté sûr alterne.
+          const sens = this.movers.length % 2 === 0 ? 1 : -1;
+          this.movers.push({
+            mesh, row, type: ch, solid: false,
+            anchorX: colX(col), halfW: largeur / 2, halfD: profondeur / 2,
+            amplitude: (balayeuse ? TRACK_HALF - TILE : TILE) * sens,
+            period: (balayeuse ? SWEEPER_PERIOD_BEATS : SLIDER_PERIOD_BEATS) * beat,
+            x: 0,
+          });
+        } else if (ch === PLATFORM && !platesVues.has(row)) {
+          // Les lignes P qui se suivent forment une seule plateforme.
+          let fin = row;
+          while (grid.cellAt(fin + 1, col) === PLATFORM) fin++;
+          for (let r = row; r <= fin; r++) platesVues.add(r);
+          const longueur = (fin - row + 1) * TILE;
+          const mesh = new THREE.Mesh(
+            new THREE.BoxGeometry(PLATFORM_HALF * 2, 0.6, longueur * 0.97),
+            new THREE.MeshStandardMaterial({
+              color: p.floors[0], roughness: 0.5, metalness: 0.1, flatShading: true,
+            }));
+          mesh.position.set(0, -0.3, ((row + fin) / 2) * TILE);
+          this.trackGroup.add(mesh);
+          this.movers.push({
+            mesh, row, rowEnd: fin, type: ch, solid: true,
+            anchorX: colX(col), halfW: PLATFORM_HALF, halfD: longueur / 2,
+            amplitude: PLATFORM_AMPLITUDE, period: PLATFORM_PERIOD_BEATS * beat,
+            x: 0,
+          });
+        } else if (ch === RISER) {
+          this.risers.push({ row, col, x: colX(col), z: row * TILE });
+        } else if (ch === LASER && col === 3) {
+          this.lasers.push({ row, z: row * TILE, bank: laserBank(row, rowsPerBeat) });
+        }
+      }
+    }
+
+    if (this.risers.length) {
+      const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_HEIGHT, BLOCK_SIZE);
+      this.riserMesh = new THREE.InstancedMesh(geo, mobileMat(), this.risers.length);
+      this.riserMesh.frustumCulled = false;
+      this.trackGroup.add(this.riserMesh);
+      // Puits d'où sort le piston, pour que la case reste lisible baissée.
+      const puits = new Builder();
+      for (const r of this.risers) puits.box(r.x, 0.06, r.z, BLOCK_SIZE * 1.15, 0.14, BLOCK_SIZE * 1.15, p.accent);
+      this.trackGroup.add(new THREE.Mesh(puits.geometry(), this._materials().neon));
+    }
+
+    if (this.lasers.length) {
+      const geo = new THREE.BoxGeometry(LASER_HALF * 2, 2.6, 0.14);
+      this.laserMesh = new THREE.InstancedMesh(
+        geo,
+        new THREE.MeshBasicMaterial({ toneMapped: false, transparent: true, opacity: 0.85 }),
+        this.lasers.length * 2);
+      this.laserMesh.frustumCulled = false;
+      this.trackGroup.add(this.laserMesh);
+      // Bornes fixes de chaque côté, elles annoncent la barrière de loin.
+      const bornes = new Builder();
+      for (const l of this.lasers) {
+        for (const side of [-1, 1]) bornes.box(side * (TRACK_HALF + 0.7), 1.4, l.z, 0.4, 2.8, 0.4, p.accent);
+      }
+      this.trackGroup.add(new THREE.Mesh(bornes.geometry(), this._materials().neon));
+    }
+  }
+
+  _buildPickups() {
+    const { grid, totalRows, palette: p } = this.track;
+    this.diamonds = [];
+    this.crowns = [];
+    for (let row = 0; row < totalRows; row++) {
+      for (let col = 0; col < COLS; col++) {
+        const ch = grid.cellAt(row, col);
+        if (ch === DIAMOND) this.diamonds.push({ x: colX(col), z: row * TILE, taken: false });
+        else if (ch === CROWN) this.crowns.push({ x: colX(col), z: row * TILE, taken: false });
+      }
+    }
+    this.diamondMesh = new THREE.InstancedMesh(
+      new THREE.OctahedronGeometry(0.42),
+      new THREE.MeshBasicMaterial({ color: p.neon, toneMapped: false }),
+      Math.max(1, this.diamonds.length));
+    this.diamondMesh.frustumCulled = false;
+    this.trackGroup.add(this.diamondMesh);
+
+    this.crownMesh = new THREE.InstancedMesh(
+      crownGeometry(0xffffff),
+      new THREE.MeshBasicMaterial({ vertexColors: true, color: p.accent, toneMapped: false }),
+      Math.max(1, this.crowns.length));
+    this.crownMesh.frustumCulled = false;
+    this.trackGroup.add(this.crownMesh);
+  }
+
+  /** Position latérale d'un obstacle mobile à l'instant musical `t`. */
   moverX(mover, t) {
-    const arrival = mover.row * ROW_DURATION;
-    return mover.anchorX + Math.cos((2 * Math.PI * (t - arrival)) / mover.period) * mover.amplitude;
+    const arrivee = mover.row * this.rowDuration;
+    return mover.anchorX + Math.cos((2 * Math.PI * (t - arrivee)) / mover.period) * mover.amplitude;
+  }
+
+  /** Hauteur d'un piston : sorti un temps sur deux, avec une course visible. */
+  riserHeight(t) {
+    const beats = (t / this.rowDuration) / this.track.rowsPerBeat;
+    const phase = beats % 2;
+    const monte = Math.min(1, Math.max(0, (phase - 1) * 4));
+    const descend = Math.min(1, Math.max(0, (2 - phase) * 4));
+    return Math.min(monte, descend);
+  }
+
+  laserActiveBank(t) {
+    const beats = (t / this.rowDuration) / this.track.rowsPerBeat;
+    return Math.floor(beats) % 2 === 0 ? 'gauche' : 'droite';
   }
 
   update(t, player) {
+    const d = this._dummy;
+
     for (const m of this.movers) {
       m.x = this.moverX(m, t);
       m.mesh.position.x = m.x;
     }
 
-    const d = this._dummy;
+    if (this.riserMesh) {
+      const h = this.riserHeight(t);
+      for (let i = 0; i < this.risers.length; i++) {
+        const r = this.risers[i];
+        d.position.set(r.x, BLOCK_HEIGHT / 2 - BLOCK_HEIGHT * (1 - h), r.z);
+        d.rotation.set(0, 0, 0);
+        d.scale.setScalar(1);
+        d.updateMatrix();
+        this.riserMesh.setMatrixAt(i, d.matrix);
+      }
+      this.riserMesh.instanceMatrix.needsUpdate = true;
+    }
+
+    if (this.laserMesh) {
+      const actif = this.laserActiveBank(t);
+      const vif = this._color.set(this.track.palette.block);
+      const eteint = new THREE.Color(this.track.palette.accent).multiplyScalar(0.18);
+      for (let i = 0; i < this.lasers.length; i++) {
+        const l = this.lasers[i];
+        ['gauche', 'droite'].forEach((cote, k) => {
+          const idx = i * 2 + k;
+          const allume = cote === actif;
+          d.position.set(cote === 'gauche' ? -LASER_CENTER : LASER_CENTER, allume ? 1.35 : 0.2, l.z);
+          d.rotation.set(0, 0, 0);
+          d.scale.set(1, allume ? 1 : 0.12, 1);
+          d.updateMatrix();
+          this.laserMesh.setMatrixAt(idx, d.matrix);
+          this.laserMesh.setColorAt(idx, allume ? vif : eteint);
+        });
+      }
+      this.laserMesh.instanceMatrix.needsUpdate = true;
+      if (this.laserMesh.instanceColor) this.laserMesh.instanceColor.needsUpdate = true;
+    }
+
     for (let i = 0; i < this.diamonds.length; i++) {
       const dia = this.diamonds[i];
-      if (dia.taken) {
-        d.position.set(0, -999, 0);
-        d.scale.setScalar(0.0001);
-      } else {
-        d.position.set(dia.x, 0.95 + Math.sin(t * 3 + i) * 0.12, dia.z);
-        d.scale.setScalar(1);
-      }
+      d.position.set(dia.x, dia.taken ? -999 : 0.95 + Math.sin(t * 3 + i) * 0.12, dia.z);
       d.rotation.set(0.4, t * 2.2 + i, 0);
+      d.scale.setScalar(dia.taken ? 0.0001 : 1);
       d.updateMatrix();
       this.diamondMesh.setMatrixAt(i, d.matrix);
     }
     this.diamondMesh.instanceMatrix.needsUpdate = true;
 
+    for (let i = 0; i < this.crowns.length; i++) {
+      const cr = this.crowns[i];
+      d.position.set(cr.x, cr.taken ? -999 : 1.05 + Math.sin(t * 2 + i) * 0.1, cr.z);
+      d.rotation.set(0, t * 1.4 + i, 0);
+      d.scale.setScalar(cr.taken ? 0.0001 : 1.15);
+      d.updateMatrix();
+      this.crownMesh.setMatrixAt(i, d.matrix);
+    }
+    this.crownMesh.instanceMatrix.needsUpdate = true;
+
     this.ball.position.set(player.x, player.y, player.z);
     this.ball.rotation.x = player.z / BALL_RADIUS;
     this.ball.rotation.z = -player.x / BALL_RADIUS;
     this.ballShadow.position.set(player.x, 0.03, player.z);
-    this.ballShadow.visible = player.grounded || player.jumping;
+    this.ballShadow.visible = player.y < 3;
     this.ballShadow.material.opacity = 0.35 * Math.max(0, 1 - player.y / 3);
 
-    this.stars.position.z = player.z;
     this.sun.position.set(player.x + 6, 14, player.z - 6);
     this.sun.target.position.set(player.x, 0, player.z);
     this.sun.target.updateMatrixWorld();
@@ -320,15 +503,15 @@ export class World {
 
   updateCamera(player, shake = 0) {
     const cam = this.camera;
-    const targetX = player.x * 0.42;
-    cam.position.x += (targetX - cam.position.x) * 0.18;
+    const back = this.cameraBack || 9.5;
+    cam.position.x += (player.x * 0.42 - cam.position.x) * 0.18;
     cam.position.y += (5.5 + player.y * 0.45 - cam.position.y) * 0.14;
-    cam.position.z = player.z - 9.5;
+    cam.position.z = player.z - back;
     if (shake > 0) {
       cam.position.x += Math.sin(shake * 47) * shake * 0.4;
       cam.position.y += Math.cos(shake * 61) * shake * 0.3;
     }
-    cam.lookAt(player.x * 0.55, 1.2, player.z + 11);
+    cam.lookAt(player.x * 0.55, 1.2, player.z + back * 1.15);
   }
 
   resize(width, height) {
@@ -336,3 +519,5 @@ export class World {
     this.camera.updateProjectionMatrix();
   }
 }
+
+export { PLATFORM_HALF, LASER_HALF, LASER_CENTER };

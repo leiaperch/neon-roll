@@ -5,8 +5,8 @@ const KEY_SPEED = 18; // unités/s au clavier
 
 /**
  * Contrôle unique : on glisse le doigt horizontalement. Le rapport
- * pixels → unités est calé sur la largeur de l'écran, donc un balayage
- * d'environ 70 % de l'écran traverse toute la piste, quel que soit le téléphone.
+ * pixels vers unités est calé sur la largeur de l'écran, donc un balayage
+ * d'environ 70 % de l'écran traverse toute la piste, quel que soit l'appareil.
  */
 export class Input {
   constructor(element) {
@@ -43,8 +43,7 @@ export class Input {
   _move = (e) => {
     if (!this.dragging) return;
     e.preventDefault();
-    const dx = (e.clientX - this.startPointerX) * this.ratio;
-    this.targetX = clamp(this.startTargetX + dx);
+    this.targetX = clamp(this.startTargetX + (e.clientX - this.startPointerX) * this.ratio);
   };
 
   _up = () => {
@@ -59,7 +58,16 @@ export class Input {
     this.keys.delete(e.key);
   };
 
-  /** Le clavier n'existe que pour tester au bureau ; le tactile reste maître. */
+  /**
+   * Décale la consigne sans toucher au doigt : utilisé par les tapis roulants,
+   * qui emportent la bille et le point de référence du glissé avec elle.
+   */
+  nudge(delta) {
+    this.targetX = clamp(this.targetX + delta);
+    this.startTargetX = clamp(this.startTargetX + delta);
+  }
+
+  /** Le clavier n'existe que pour tester au bureau, le tactile reste maître. */
   update(dt) {
     let dir = 0;
     if (this.keys.has('ArrowLeft') || this.keys.has('a') || this.keys.has('q')) dir -= 1;
@@ -69,6 +77,7 @@ export class Input {
 
   reset(x = 0) {
     this.targetX = clamp(x);
+    this.startTargetX = this.targetX;
     this.dragging = false;
   }
 }
