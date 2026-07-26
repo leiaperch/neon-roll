@@ -86,5 +86,5 @@ export default piste({
     }
   },
 
-  pattern: motifEDM({ ACCORDS, BASSE, HOOK, CONTRE, style: 'futurebass', ecart: 24, sub: 0.6 }),
+  pattern: motifEDM({ batterie: 'trap', ACCORDS, BASSE, HOOK, CONTRE, style: 'futurebass', ecart: 24, sub: 0.6 }),
 });

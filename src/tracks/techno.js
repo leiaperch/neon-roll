@@ -89,5 +89,5 @@ export default piste({
     }
   },
 
-  pattern: motifEDM({ ACCORDS, BASSE, HOOK, CONTRE, ecart: 18 }),
+  pattern: motifEDM({ batterie: 'techno', ACCORDS, BASSE, HOOK, CONTRE, ecart: 18 }),
 });

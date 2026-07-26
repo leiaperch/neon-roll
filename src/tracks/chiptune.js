@@ -101,7 +101,11 @@ export default piste({
     if (phase !== 'pont') {
       const coupe = monte && bar % 4 === 3 && inBar >= 4;
       if (inBar % 4 === 0 && !coupe) s.kickMachine(t, { level: 0.5, from: 210, to: 55, decay: 0.13 });
-      if (inBar === 4 && phase !== 'intro') s.bruitPuce(t, { level: 0.32, decay: 0.12, aigu: 2400 });
+      // Bruit de claire sur le backbeat, deux et quatre : la puce n'a qu'une
+      // voie de bruit, elle imite le kit avec ce qu'elle a.
+      if ((inBar === 2 || inBar === 6) && phase !== 'intro') {
+        s.bruitPuce(t, { level: 0.32, decay: 0.12, aigu: 2400 });
+      }
       if (inBar % 2 === 1) s.bruitPuce(t, { level: 0.1, decay: 0.03 });
     }
     if ((bar === 8 || bar === 24) && inBar === 0) s.crash(t, { level: 0.3 });

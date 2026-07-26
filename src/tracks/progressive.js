@@ -95,5 +95,5 @@ export default piste({
     }
   },
 
-  pattern: motifEDM({ ACCORDS, BASSE, HOOK, CONTRE, ecart: 20, sub: 0.6 }),
+  pattern: motifEDM({ batterie: 'festival', ACCORDS, BASSE, HOOK, CONTRE, ecart: 20, sub: 0.6 }),
 });

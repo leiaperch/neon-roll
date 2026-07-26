@@ -78,7 +78,103 @@ export function sectionsEDM({ dur = 'bloc', variante = 'trou', respiration = 'ta
  * supersaw sur le lead, montées à la caisse claire, drop qui tombe sur le
  * premier temps.
  */
-export function motifEDM({ ACCORDS, BASSE, HOOK, CONTRE, sub = 0.5, ecart = 16, style = 'festival' }) {
+/**
+ * Vocabulaire de batteries.
+ *
+ * Une mesure vaut huit croches, donc le temps `n` tombe sur `inBar = n * 2` :
+ * le premier temps en 0, le deuxième en 2, le troisième en 4, le quatrième
+ * en 6. Le backbeat du 4/4 est sur les temps deux et quatre, donc en 2 et 6.
+ * Le poser en 4 revient à jouer une caisse claire sur le trois, c'est-à-dire
+ * un feeling en demi-temps, ce qui n'est pas la même musique.
+ *
+ * Chaque genre a sa signature rythmique et ce sont ces différences, plus que
+ * les timbres, qui font qu'on reconnaît un style en deux secondes.
+ */
+const BATTERIES = {
+  /** Quatre au sol arrondi, shaker continu, backbeat léger. */
+  tropical(s, t, inBar, croche, c) {
+    if (inBar % 2 === 0 && !c.coupe) {
+      s.kickMachine(t, { level: 0.7, from: 150, to: 48, decay: 0.22, clic: 0.25, duck: 0.42 });
+    }
+    if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: 0.22 });
+    // Shaker : deux coups par croche, c'est lui qui donne le balancement.
+    if (!c.pont) {
+      s.charleston(t, { level: 0.07, rate: 1.7 });
+      s.charleston(t + croche / 2, { level: 0.11, rate: 1.7 });
+    }
+    if (inBar === 7) s.charleston(t, { level: 0.14, ouvert: true });
+  },
+
+  /** House : charleston ouvert sur chaque contretemps, c'est la signature. */
+  house(s, t, inBar, croche, c) {
+    if (inBar % 2 === 0 && !c.coupe) s.kickMachine(t, { level: c.drop ? 0.92 : 0.8 });
+    if (inBar % 2 === 1) s.charleston(t, { level: 0.2, ouvert: true });
+    if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: c.drop ? 0.3 : 0.24 });
+    if (c.drop) s.charleston(t + croche / 2, { level: 0.06, rate: 1.8 });
+  },
+
+  /** Techno : minimale et hypnotique, la claire n'arrive que sur le quatre. */
+  techno(s, t, inBar, croche, c) {
+    if (inBar % 2 === 0 && !c.coupe) s.kickMachine(t, { level: 0.88 });
+    if (inBar % 2 === 1) s.charleston(t, { level: 0.16 });
+    if (!c.intro && inBar === 6) s.clap(t, { level: 0.26 });
+    // Contretemps métallique sur les croches 3 et 5 : le grain du genre.
+    if (c.drop && (inBar === 3 || inBar === 5)) s.caisseClaire(t, { level: 0.1, rate: 1.7 });
+  },
+
+  /** Festival : backbeat franc, charleston ouvert, relance aux toms. */
+  festival(s, t, inBar, croche, c) {
+    if (inBar % 2 === 0 && !c.coupe) s.kickMachine(t, { level: c.drop ? 0.95 : 0.8 });
+    if (inBar % 2 === 1) s.charleston(t, { level: c.intro ? 0.13 : 0.19, ouvert: inBar % 4 === 3 });
+    if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: c.drop ? 0.32 : 0.24 });
+    if (c.derniereMesure && inBar >= 6) s.tom(t, { aigu: inBar === 7, level: 0.34 });
+  },
+
+  /** Trance : charleston ouvert sur tous les contretemps, roulis en montée. */
+  trance(s, t, inBar, croche, c) {
+    if (inBar % 2 === 0 && !c.coupe) s.kickMachine(t, { level: 0.9, from: 190, to: 44 });
+    if (inBar % 2 === 1) s.charleston(t, { level: 0.21, ouvert: true });
+    if (!c.intro && (inBar === 2 || inBar === 6)) s.clap(t, { level: 0.26 });
+    if (c.monte) s.charleston(t + croche / 2, { level: 0.1, rate: 1.6 });
+  },
+
+  /**
+   * Trap : demi-temps. La caisse claire ne tombe que sur le troisième temps
+   * et la grosse caisse est syncopée, donc la pulsation paraît deux fois plus
+   * lente alors que le tempo n'a pas bougé. C'est le groove de la future bass.
+   */
+  trap(s, t, inBar, croche, c) {
+    if (!c.coupe && (inBar === 0 || inBar === 3 || inBar === 6)) {
+      s.kickMachine(t, { level: 0.9, decay: 0.3 });
+    }
+    if (!c.intro && inBar === 4) s.caisseClaire(t, { level: 0.42 });
+    // Charleston en doubles croches, avec un triolet de temps en temps.
+    const debits = inBar === 5 ? 3 : 2;
+    for (let i = 0; i < debits; i++) {
+      s.charleston(t + (i * croche) / debits, { level: i === 0 ? 0.16 : 0.09 });
+    }
+  },
+
+  /** Hardstyle : la caisse occupe tout, donc presque plus de cymbales. */
+  hardstyle(s, t, inBar, croche, c) {
+    if (inBar % 2 === 0 && !c.coupe) {
+      s.kickMachine(t, { level: 0.95, from: 210, to: 46, decay: 0.16, queue: croche * 1.4, duck: 0.18 });
+    }
+    if (!c.drop && inBar % 2 === 1) s.charleston(t, { level: 0.14 });
+    if (!c.intro && inBar === 6 && !c.drop) s.clap(t, { level: 0.24 });
+  },
+
+  /** Big room : backbeat large et roulement de claire avant chaque drop. */
+  bigroom(s, t, inBar, croche, c) {
+    if (inBar % 2 === 0 && !c.coupe) s.kickMachine(t, { level: 0.95 });
+    if (inBar % 2 === 1) s.charleston(t, { level: 0.17, ouvert: inBar === 7 });
+    if (!c.intro && (inBar === 2 || inBar === 6)) s.caisseClaire(t, { level: 0.34 });
+  },
+};
+
+export function motifEDM({
+  ACCORDS, BASSE, HOOK, CONTRE, sub = 0.5, ecart = 16, style = 'festival', batterie = 'festival',
+}) {
   const tropical = style === 'tropical';
   const hardstyle = style === 'hardstyle';
   const futurebass = style === 'futurebass';
@@ -95,25 +191,17 @@ export function motifEDM({ ACCORDS, BASSE, HOOK, CONTRE, sub = 0.5, ecart = 16, 
     const monte = phase === 'montee' || phase === 'montee2';
     const derniereMesure = (bar % 4) === 3;
 
-    // --- Batterie ---
+    // --- Batterie, propre au genre ---
     if (phase !== 'pont') {
       // La dernière mesure d'une montée coupe la grosse caisse : le vide
       // avant le drop est ce qui fait tomber le drop.
-      const coupe = monte && derniereMesure && inBar >= 4;
-      if (inBar % 2 === 0 && !coupe) {
-        if (hardstyle) {
-          // Grosse caisse à queue accordée : elle occupe tout le temps.
-          s.kickMachine(t, { level: 0.95, from: 210, to: 46, decay: 0.16, queue: croche * 1.4, duck: 0.18 });
-        } else if (tropical) {
-          s.kickMachine(t, { level: 0.7, from: 150, to: 48, decay: 0.22, clic: 0.25, duck: 0.42 });
-        } else {
-          s.kickMachine(t, { level: drop ? 0.95 : 0.8 });
-        }
-      }
-      if (inBar % 2 === 1) {
-        s.charleston(t, { level: phase === 'intro' ? 0.13 : 0.19, ouvert: inBar % 4 === 3 });
-      }
-      if (inBar === 4 && phase !== 'intro') s.clap(t, { level: drop ? 0.32 : 0.24 });
+      const contexte = {
+        phase, drop, monte, derniereMesure,
+        intro: phase === 'intro',
+        pont: false,
+        coupe: monte && derniereMesure && inBar >= 4,
+      };
+      (BATTERIES[batterie] || BATTERIES.festival)(s, t, inBar, croche, contexte);
       // Contretemps du hardstyle : la basse enfle entre deux frappes.
       if (hardstyle && drop && inBar % 2 === 1) {
         s.basseInverse(t, basse - 12, croche * 0.92, { level: 0.28 });
