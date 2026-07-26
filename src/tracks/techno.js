@@ -1,12 +1,12 @@
-import { GAMMES } from '../synth.js';
+import { piste, surPas, plan } from './kit.js';
 
 /**
- * Face B, piste 4. Fa dièse mineur, quatre temps au sol.
+ * Face A, piste 2. Techno claire en fa dièse mineur.
  *
- * La machine tient le rythme, mais les cordes tiennent la mélodie : le pont
- * confie la progression à un violoncelle et un violon, et c'est eux qui
- * ramènent le morceau après la rupture. La piste répète les mêmes figures en
- * les décalant, comme le motif répète la même mesure en ouvrant un filtre.
+ * Une seule cellule mélodique, répétée sans relâche et transposée quand
+ * l'accord bouge : c'est l'obstination qui fait entrer le motif. La carte
+ * suit exactement ses attaques, donc la piste devient aussi obsédante que
+ * le morceau.
  */
 
 const BASSE = [42, 42, 38, 38, 45, 45, 40, 40];
@@ -14,225 +14,83 @@ const ACCORDS = [
   [61, 66, 69], [61, 66, 69], [62, 66, 69], [62, 66, 69],
   [61, 64, 69], [61, 64, 69], [59, 64, 68], [59, 64, 68],
 ];
-/** Rythme de basse : croches jouées, croches tues. Le silence fait le groove. */
-const RYTHME_BASSE = [0, 3, 4, 6, 7];
-/**
- * La cellule d'aigus, une mesure. Elle ne change jamais de rythme : elle est
- * seulement transposée quand l'accord bouge, et sa dernière note tombe une
- * mesure sur quatre. C'est la répétition obstinée qui fait entrer le motif, pas
- * la variation.
- */
-const CELLULE = [[2, 78, 1], [3, 78, 1], [5, 81, 1], [6, 78, 2]];
-const CELLULE_FIN = [[2, 78, 1], [3, 78, 1], [5, 76, 1], [6, 73, 3]];
-/** Transposition par mesure, elle suit la basse. */
 const TRANSPO = [0, 0, -4, -4, 3, 3, -2, -2];
 
-export default {
+const CELLULE = [[2, 78, 1], [3, 78, 1], [5, 81, 1], [6, 78, 2]];
+const CELLULE_FIN = [[2, 78, 1], [3, 78, 1], [5, 76, 1], [6, 73, 3]];
+const HOOK = [
+  CELLULE, CELLULE, CELLULE, CELLULE,
+  CELLULE, CELLULE, CELLULE, CELLULE_FIN,
+];
+
+/** Les deux croches serrées du milieu de mesure sont le « boum boum ». */
+const ACCENTS = [
+  [2, 3, 5], [2, 3, 6], [2, 3, 5], [2, 3, 6],
+  [2, 3, 5], [2, 3, 6], [2, 3, 5], [0, 2, 3, 6],
+];
+
+export default piste({
   id: 'techno',
-  face: 'B',
-  index: 4,
+  face: 'A',
+  index: 2,
   title: 'Sous-sol, 4 h',
   genre: 'Techno',
   tagline: 'La même mesure, jusqu’à ce qu’elle devienne autre chose.',
-  bpm: 132,
+  bpm: 128,
   rowsPerBeat: 2,
   echoSteps: 3,
-  mix: 1.3,
-  scale: GAMMES.mineur,
-  scaleRoot: 78,
+  mix: 1.2,
+  bars: 32,
   instruments: ['violon', 'violoncelle'],
   percussions: ['charleston', 'charlestonOuvert', 'crash', 'caisseClaire'],
+  ACCENTS,
 
   palette: {
-    skyTop: 0x000000,
-    skyBottom: 0x101018,
-    fog: 0x07070c,
-    floors: [0x1e1e26, 0x2a2a36, 0x16161c],
-    block: 0xf2f2f2,
-    accent: 0x00e5ff,
+    skyTop: 0x1a2b6b,
+    skyBottom: 0x4fd6ff,
+    fog: 0x2c4a8c,
+    floors: [0xdfe9ff, 0xc4d6f7, 0xa9c1ef],
+    block: 0xff4d7d,
+    accent: 0x00c2ff,
     neon: 0xffffff,
-    decor: 0x0c0c12,
-    ball: 0xdfefff,
+    decor: 0x2f4694,
+    ball: 0xffffff,
   },
 
-  phrases: {
-    entree: `
-      #######
-      #######
-      ###o###
-      #######
-      #######
-      ###o###
-      #######
-      #######`,
-    boucle: `
-      .#####.
-      .##X##.
-      .#####.
-      .#####.
-      .##X##.
-      .#####.
-      .#####.
-      .##o##.`,
-    boucle2: `
-      .#####.
-      .#X#X#.
-      .#####.
-      .#####.
-      .#X#X#.
-      .#####.
-      .#####.
-      .##o##.`,
-    balayage: `
-      .#####.
-      .##~##.
-      .#####.
-      .#####.
-      .##~##.
-      .#####.
-      .#####.
-      .##o##.`,
-    coulisse: `
-      .#####.
-      .##=##.
-      .#####.
-      .#####.
-      .##=##.
-      .#####.
-      .#####.
-      .##o##.`,
-    faisceaux: `
-      .#####.
-      .##o##.
-      .LLLLL.
-      .#####.
-      .#####.
-      .LLLLL.
-      .#####.
-      .#####.`,
-    faisceauxSerres: `
-      .#####.
-      .LLLLL.
-      .#####.
-      .LLLLL.
-      .#####.
-      .LLLLL.
-      .#####.
-      .##o##.`,
-    creux: `
-      .#####.
-      .##.##.
-      .#####.
-      .#.#.#.
-      .#####.
-      .##.##.
-      .#####.
-      .##o##.`,
-    corridor: `
-      ..###..
-      ..###..
-      ..###..
-      ..#o#..
-      ..###..
-      ..###..
-      ..###..
-      ..#o#..`,
-    decalage: `
-      .#####.
-      ..####.
-      ..####.
-      ...###.
-      ...###.
-      ..####.
-      ..####.
-      .#####.`,
-    arret: `
-      .##*##.
-      .#####.
-      .#####.
-      .##o##.
-      .#####.
-      .#####.
-      .#####.
-      .#####.`,
-    montee: `
-      .#####.
-      .#####.
-      .##^##.
-      .......
-      .......
-      .......
-      .......
-      .##Q##.`,
-    prime: `
-      ..###..
-      ..#Q#..
-      ..###..
-      .#####.
-      .#####.
-      .##o##.
-      .#####.
-      .#####.`,
-    drop: `
-      #######
-      #X###X#
-      #######
-      ###~###
-      #######
-      #X###X#
-      #######
-      ##o.o##`,
-    dropDur: `
-      #######
-      ##X#X##
-      #######
-      #X#X#X#
-      #######
-      ##X#X##
-      #######
-      ###Q###`,
-    sortie: `
-      .#####.
-      .#####.
-      .##o##.
-      .#####.
-      .#####.
-      .#####.
-      .#####.
-      .#####.`,
-  },
-
-  arrangement: [
-    'entree', 'boucle', 'boucle', 'arret',
-    'boucle2', 'balayage', 'boucle:m', 'decalage',
-    'faisceaux', 'coulisse', 'corridor', 'arret',
-    'creux', 'balayage:m', 'boucle2:m', 'decalage:m',
-    'drop', 'boucle2', 'faisceaux', 'arret',
-    'montee', 'prime', 'coulisse:m', 'creux:m',
-    'faisceauxSerres', 'balayage', 'corridor', 'arret',
-    'drop', 'dropDur', 'boucle2:m', 'balayage:m',
-    'faisceauxSerres', 'creux', 'boucle', 'sortie',
-  ],
+  sections: plan([
+    [4, { mode: 'calme', largeur: 5 }],
+    [1, { mode: 'halte' }],
+    [3, { mode: 'bloc', largeur: 5, porte: 1 }],
+    [4, { mode: 'balayeuse', largeur: 5, porte: 1 }],
+    [1, { mode: 'halte' }],
+    [3, { mode: 'bloc', largeur: 7, porte: 1 }],
+    [4, { mode: 'faisceau', largeur: 5 }],
+    [1, { mode: 'halte' }],
+    [1, { mode: 'saut', couronne: true }],
+    [3, { mode: 'trou', largeur: 5, porte: 1 }],
+    [3, { mode: 'bloc', largeur: 7, porte: 0, couronne: true }],
+    [1, { mode: 'halte' }],
+    [2, { mode: 'bloc', largeur: 5, porte: 0 }],
+    [1, { mode: 'calme', largeur: 5, couronne: true }],
+  ]),
 
   decor(stage) {
     const { rows, box, neon, colX, TILE } = stage;
-    const noir = this.palette.decor;
+    const bleu = this.palette.decor;
     for (let row = 2; row < rows; row += 8) {
       const z = row * TILE;
       for (const side of [-1, 1]) {
         const x = side * (colX(6) + 3.4);
-        for (let i = 0; i < 3; i++) box(x, 1 + i * 2, z, 3.4, 1.9, 2.4, noir);
+        for (let i = 0; i < 3; i++) box(x, 1 + i * 2, z, 3.4, 1.9, 2.4, bleu);
         neon(x, 0.02, z, 3.6, 0.1, 2.6, this.palette.accent);
-        for (let i = 0; i < 3; i++) box(x - side * 1.75, 1 + i * 2, z, 0.12, 1.3, 1.6, 0x1c1c26);
       }
     }
-    for (let row = 6; row < rows; row += 16) {
+    for (let row = 6; row < rows; row += 12) {
       const z = row * TILE;
       for (const side of [-1, 1]) {
         const x = side * (colX(6) + 1.6);
-        box(x, 5, z, 0.24, 10, 0.24, noir);
-        box(x, 9.9, z, 1.6, 0.5, 0.5, noir);
-        neon(x, 9.6, z, 0.8, 0.2, 0.35, this.palette.accent);
+        box(x, 5, z, 0.24, 10, 0.24, bleu);
+        neon(x, 9.6, z, 1.4, 0.3, 0.35, this.palette.accent);
       }
     }
   },
@@ -244,59 +102,40 @@ export default {
     const croche = s.stepDuration;
     const basse = BASSE[mesure];
     const accord = ACCORDS[mesure];
-
     const intro = bar < 4;
-    const pont = bar >= 20 && bar < 22; // les cordes prennent la main
-    const drop = bar >= 16 && bar < 20;
-    const final = bar >= 32;
+    const pont = bar >= 20 && bar < 22;
+    const plein = bar >= 12;
 
-    // --- Machine ---
     if (!pont) {
-      if (inBar % 2 === 0) s.kickMachine(t, { level: 0.9 });
-      if (inBar % 2 === 1) s.charleston(t, { level: intro ? 0.14 : 0.2, ouvert: inBar % 4 === 3 });
-      if (inBar === 4 && !intro) s.clap(t, { level: 0.28 });
-      if (inBar === 4 && (drop || final)) s.caisseClaire(t, { level: 0.22 });
+      if (inBar % 2 === 0) s.kickMachine(t, { level: 0.85 });
+      if (inBar % 2 === 1) s.charleston(t, { level: intro ? 0.15 : 0.2, ouvert: inBar % 4 === 3 });
+      if (!intro && inBar === 4) s.clap(t, { level: 0.28 });
     } else if (inBar % 2 === 1) {
       s.charleston(t, { level: 0.1, ouvert: true });
     }
-    if ((bar === 16 || bar === 22 || bar === 32) && inBar === 0) s.crash(t, { level: 0.3 });
+    if ((bar === 12 || bar === 22) && inBar === 0) s.crash(t, { level: 0.28 });
 
-    // --- Basse : rythme troué, filtre qui s'ouvre sur la mesure ---
-    if (!intro && !pont && RYTHME_BASSE.includes(inBar)) {
-      const ouverture = 480 + Math.abs(4 - inBar) * 420 + (drop || final ? 1000 : 0);
-      const octave = inBar === 7 ? 12 : 0;
-      s.basse(t, basse - 12 + octave, croche * (inBar === 6 ? 1.6 : 0.85), {
-        level: 0.3, cutoff: ouverture, floor: 200, q: 9,
+    if (!intro && !pont && [0, 3, 4, 6, 7].includes(inBar)) {
+      s.basse(t, basse - 12 + (inBar === 7 ? 12 : 0), croche * 0.85, {
+        level: 0.28, cutoff: 480 + Math.abs(4 - inBar) * 420 + (plein ? 900 : 0), floor: 200, q: 9,
       });
     }
 
-    // --- Cordes : nappe discrète, puis seules au pont ---
+    // Cordes : nappe discrète, seules au pont.
     if (inBar === 0) {
       if (pont) {
         s.violoncelle(t, basse, croche * 8, { level: 0.36 });
         s.violon(t, accord[1] + 12, croche * 8, { level: 0.3 });
-        s.violon(t, accord[2] + 12, croche * 8, { level: 0.22 });
-      } else if (!drop && !intro) {
-        s.violoncelle(t, basse, croche * 8, { level: 0.16 });
-      }
-    }
-    if (pont && inBar === 4) s.violon(t, accord[2] + 19, croche * 4, { level: 0.26 });
-
-    // --- Accord plaqué sur les contretemps ---
-    if (!intro && !pont && (inBar === 3 || inBar === 5)) {
-      s.stab(t, accord, croche * 0.5, { level: drop || final ? 0.11 : 0.075, echo: 0.4 });
-    }
-
-    // --- Cellule d'aigus, à partir du drop : toujours la même, transposée ---
-    if ((drop || bar >= 24) && !pont) {
-      const cellule = mesure === 7 ? CELLULE_FIN : CELLULE;
-      for (const [pas, note, duree] of cellule) {
-        if (pas === inBar) {
-          s.stab(t, [note + TRANSPO[mesure]], duree * croche * 0.8, { level: 0.09, echo: 0.5 });
-        }
+      } else if (!intro) {
+        s.violoncelle(t, basse, croche * 8, { level: 0.14 });
       }
     }
 
-    if (bar === 21 && inBar === 4) s.montee(t, croche * 12, { level: 0.13 });
+    if (!intro && !pont) {
+      surPas(HOOK[mesure], inBar, (note, duree) => {
+        s.stab(t, [note + TRANSPO[mesure]], duree * croche * 0.8, { level: 0.1, echo: 0.45 });
+      });
+    }
+    if (pont && inBar === 4) s.montee(t, croche * 12, { level: 0.12 });
   },
-};
+});

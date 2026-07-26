@@ -5,12 +5,12 @@
  */
 
 :root {
-  --encre: #efe6d4;
-  --encre-faible: #9a9077;
-  --carton: #0b0a09;
-  --carton-clair: #17151280;
+  --encre: #1c1730;
+  --encre-faible: #6b6484;
+  --carton: #f7f1e6;
+  --carton-clair: #00000010;
   --accent: #d9a441;
-  --trait: rgba(239, 230, 212, 0.16);
+  --trait: rgba(28, 23, 48, 0.16);
   --condensee: "Bahnschrift", "DIN Condensed", "Haettenschweiler", "Arial Narrow", "Oswald", sans-serif;
   --machine: "Courier New", ui-monospace, "SFMono-Regular", monospace;
   color-scheme: dark;
@@ -127,8 +127,8 @@ html, body {
   height: 7px;
   margin: -3.5px 0 0 -3.5px;
   border-radius: 50%;
-  background: var(--encre);
-  box-shadow: 0 0 0 3px rgba(11, 10, 9, 0.6);
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(28, 23, 48, 0.5);
   will-change: transform;
 }
 
@@ -175,8 +175,8 @@ html, body {
   padding: 20px;
   overflow-y: auto;
   background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 3px),
-    radial-gradient(130% 90% at 50% 35%, rgba(12, 11, 10, 0.72), rgba(6, 5, 5, 0.96));
+    repeating-linear-gradient(0deg, rgba(28, 23, 48, 0.02) 0 1px, transparent 1px 3px),
+    radial-gradient(130% 90% at 50% 30%, rgba(247, 241, 230, 0.82), rgba(238, 228, 212, 0.94));
 }
 
 #overlay.is-hidden { display: none; }
@@ -187,7 +187,7 @@ html, body {
   padding: 26px 24px 22px;
   background: var(--carton);
   border: 1px solid var(--trait);
-  box-shadow: 0 0 0 6px rgba(11, 10, 9, 0.55);
+  box-shadow: 0 14px 40px rgba(28, 23, 48, 0.22);
 }
 
 #overlay[data-panel="sleeve"] .panel[data-for="sleeve"],

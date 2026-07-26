@@ -11,7 +11,10 @@ export const TRACK_HALF = ((COLS - 1) / 2) * TILE;
 
 export const BALL_RADIUS = 0.55;
 export const BALL_Y = BALL_RADIUS;
-export const MAX_LATERAL_SPEED = 24; // unités/s, bride le déplacement au doigt
+// Le déplacement latéral doit permettre de changer de colonne entre deux
+// croches consécutives, sinon un « boum boum » du lead ne peut pas devenir
+// deux esquives. Deux unités à cette vitesse prennent 0,05 s.
+export const MAX_LATERAL_SPEED = 38;
 export const CONVEYOR_PUSH = 5.5; // poussée latérale d'un tapis, en unités/s
 
 export const BLOCK_SIZE = 1.55;

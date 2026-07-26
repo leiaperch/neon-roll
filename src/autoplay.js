@@ -90,15 +90,21 @@ export function autoplay(game, world, input, track) {
   if (!chemin) return { piste: track.id, etat: 'aucun chemin' };
   eviterMobiles(chemin, track, world, rd);
 
+  /**
+   * Modèle de joueur : viser la porte de la ligne la plus proche, et ne partir
+   * vers la suivante qu'une fois sa zone de collision franchie.
+   *
+   * Les deux moitiés de la règle comptent autant l'une que l'autre. Partir
+   * trop tôt, c'est revenir dans un obstacle qu'on n'a pas fini de dépasser ;
+   * partir trop tard, c'est-à-dire attendre d'être arrivé sur la ligne
+   * suivante, c'est ne plus avoir le temps de traverser quand les portes
+   * s'enchaînent.
+   */
+  const ZONE = 0.32; // demi-profondeur de collision, en lignes
   const viser = (rowF) => {
-    const r = Math.min(track.totalRows - 1, Math.floor(rowF));
-    const actuelle = Math.round(chemin[r]);
-    const suivante = Math.round(chemin[Math.min(track.totalRows - 1, r + 1)]);
-    if (suivante === actuelle) return actuelle;
-    // Revenir sur une colonne encore mortelle est interdit tant que la ligne
-    // n'est pas franchie ; c'est ce que fait un joueur qui a vu l'obstacle.
-    const dangereuse = !track.grid.isSafe(r, suivante);
-    return dangereuse && rowF - r < 0.5 ? actuelle : suivante;
+    const r = Math.max(0, Math.min(track.totalRows - 1, Math.round(rowF)));
+    if (rowF <= r + ZONE) return Math.round(chemin[r]);
+    return Math.round(chemin[Math.min(track.totalRows - 1, r + 1)]);
   };
 
   const vrai = game.synth;

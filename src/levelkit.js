@@ -150,7 +150,11 @@ export function validateMap(rows, rowsPerBeat) {
 
 /** Développe une piste et y attache sa grille. Point d'entrée du jeu. */
 export function buildTrack(track) {
-  const rows = compose(track.phrases, track.arrangement);
+  // Une piste décrit soit des phrases arrangées à la main, soit un plan dont
+  // la carte se déduit des attaques du lead.
+  const rows = track.phrases
+    ? compose(track.phrases, track.arrangement)
+    : track.compose();
   const compte = (ch) => rows.reduce((n, line) => n + [...line].filter((c) => c === ch).length, 0);
   return {
     ...track,

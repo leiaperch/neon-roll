@@ -12,15 +12,36 @@ visuels. Aucun asset importé, aucun fichier audio.
 
 | | Piste | Genre | Tempo | Durée | Caractère |
 | --- | --- | --- | --- | --- | --- |
-| A1 | Poussière de Delta | Blues | 84 | 1:09 | route large, tapis roulants, apprentissage |
-| A2 | Cabinet des Miroirs | Baroque | 100 | 1:07 | symétries, grilles dorées, plateformes |
-| B3 | Cartouche 03 | Chiptune | 150 | 0:58 | damiers, pistons, tout est carré |
-| B4 | Sous-sol, 4 h | Techno | 132 | 1:06 | boucles, barres, faisceaux |
-| B5 | Enclume | Metal | 176 | 0:55 | la plus rapide, forge et chaînes |
+| A1 | Boule à Facettes | French house | 118 | 1:05 | large et roulante, on y apprend le geste |
+| A2 | Sous-sol, 4 h | Techno | 128 | 1:00 | une cellule obstinée, barres et faisceaux |
+| B3 | Ascension | Trance | 138 | 0:56 | notes tenues, portes bien détachées |
+| B4 | Cartouche 03 | Chiptune | 150 | 0:51 | damiers, pistons, tout est carré |
+| B5 | Course de Nuit | Drum and bass | 172 | 0:45 | la plus rapide, portes espacées de force |
 
-Le tempo n'est pas décoratif : il fixe la vitesse de défilement. Le blues
-avance à 5,6 unités par seconde, le metal à 11,7. La caméra recule d'autant,
-pour garder un temps de lecture comparable.
+Le tempo n'est pas décoratif : il fixe la vitesse de défilement. La house
+avance à 7,9 unités par seconde, la drum and bass à 11,5. La caméra recule
+d'autant, pour garder un temps de lecture comparable.
+
+## Le niveau suit le lead
+
+C'est le principe du jeu. La carte n'est pas écrite à côté de la musique, elle
+est **dessinée par elle** : chaque attaque du crochet devient une porte, et la
+porte se déplace d'une colonne à chaque attaque. Si l'instrumental fait
+« boum boum » sur deux croches, il y a deux portes coup sur coup, donc deux
+esquives. Rien à synchroniser à la main, la carte est une conséquence de la
+mélodie.
+
+Une piste décrit donc son crochet, ses accents (l'ossature rythmique du lead,
+ce qu'on taperait dans les mains) et son plan : quelle section est calme,
+laquelle est un mur de blocs, où sont les checkpoints, les sauts et les
+couronnes. Le reste est déduit par `src/composer.js`.
+
+Cela impose une contrainte de géométrie qui n'est pas intuitive. Deux
+obstacles sur des lignes voisines laissent une fenêtre de `1 - 2 × halfZ`
+ligne pour changer de colonne : avec une demi-profondeur de collision de 0,48
+ligne, cette fenêtre tombe à 0,04 ligne, c'est-à-dire rien. Les portes
+rapprochées sont alors infranchissables quelle que soit la vitesse du doigt.
+La profondeur est donc bridée à 0,31 ligne, plus courte que le bloc visible.
 
 ## Démarrer
 

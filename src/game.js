@@ -12,10 +12,17 @@ import { colX } from './world.js';
 const GRAVITY = 34;
 const SUPPORT_TOLERANCE = TILE * 0.5 + BALL_RADIUS * 0.45;
 const BLOCK_HALF_X = BLOCK_SIZE / 2 + BALL_RADIUS * 0.7;
-// Volontairement sous une demi-ligne : sinon deux obstacles consécutifs se
-// recouvrent en profondeur et ne laissent aucun couloir latéral.
-const BLOCK_HALF_Z = Math.min(TILE * 0.48, BLOCK_SIZE / 2 + BALL_RADIUS * 0.35);
-const LASER_HALF_Z = TILE * 0.4;
+/**
+ * Profondeur de collision, volontairement plus courte que le bloc visible.
+ *
+ * Deux obstacles sur des lignes voisines laissent une fenêtre de
+ * `1 - 2 × halfZ` ligne pour changer de colonne. À 0,48 ligne cette fenêtre
+ * tombe à 0,04 ligne, c'est-à-dire rien : les portes rapprochées deviennent
+ * infranchissables quelle que soit la vitesse du doigt. À 0,31 ligne il reste
+ * 0,38 ligne, largement de quoi passer.
+ */
+const BLOCK_HALF_Z = TILE * 0.31;
+const LASER_HALF_Z = TILE * 0.28;
 const LASER_FREE_X = TILE * 0.5 - BALL_RADIUS * 0.5; // demi-largeur de la colonne centrale
 
 export const STATE = {
