@@ -70,7 +70,7 @@ export default piste({
     ball: 0xffffff,
   },
 
-  sections: sectionsEDM({ variante: 'piston', respiration: 'tapis', dur: 'bloc' }),
+  sections: sectionsEDM({ variante: 'piston', respiration: 'tapis', dur: 'canon' }),
 
   /** Nuages géométriques flottants, très clairs, posés loin de la piste. */
   decor(stage) {

@@ -35,6 +35,15 @@ export const SPINNER = 'S'; // croix qui tourne en continu au milieu de la piste
  * sont ceux qui ont fait diverger le validateur, le rendu et la collision.
  */
 export const SCIE = 'Z';
+/**
+ * Canon : il tire deux temps sur trois et se tait le troisième.
+ *
+ * Le cycle de trois temps ne tombe pas juste sur la mesure à quatre temps, si
+ * bien que la fenêtre de tir se déplace de mesure en mesure au lieu de se
+ * répéter. C'est ce décalage qui fait passer la lecture du spatial au
+ * rythmique : on ne retient plus une position, on retient un tempo.
+ */
+export const CANON = 'C';
 
 export const JUMP_ROWS = 5; // doit rester aligné sur config.js
 
@@ -42,7 +51,7 @@ export const JUMP_ROWS = 5; // doit rester aligné sur config.js
 export const SOLID = new Set([
   FLOOR, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT,
   SWEEPER, SLIDER, LASER, RISER, BELT_R, BELT_L,
-  MARTEAU, PRESSE, ROUE, SPINNER, SCIE,
+  MARTEAU, PRESSE, ROUE, SPINNER, SCIE, CANON,
 ]);
 
 export const ALL_CELLS = new Set([...SOLID, VOID, PLATFORM]);
@@ -98,6 +107,11 @@ export function presseBasse(row, rowsPerBeat) {
   return Math.floor(row / rowsPerBeat) % 2 === 0;
 }
 
+/** Le canon tire, sauf sur le troisième temps de son cycle. */
+export function canonTire(row, rowsPerBeat) {
+  return Math.floor(row / rowsPerBeat) % 3 !== 2;
+}
+
 /** Le bloc surgissant est sorti un temps sur deux. */
 export function riserUp(row, rowsPerBeat) {
   return Math.floor(row / rowsPerBeat) % 2 === 1;
@@ -118,6 +132,7 @@ export function isLethal(cell, row, col, rowsPerBeat) {
   // La scie est sur sa ligne à l'instant du passage : elle se traite donc
   // comme un bloc, et le validateur la voit sans rien avoir à apprendre.
   if (cell === SCIE) return true;
+  if (cell === CANON) return canonTire(row, rowsPerBeat);
   // Le marteau et les roues, eux, restent des mobiles : leur côté sûr est
   // calculé par le générateur, qui y place la porte.
   return false;

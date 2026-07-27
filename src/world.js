@@ -7,7 +7,8 @@ import { Courbe } from './courbe.js';
 import {
   VOID, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT, SWEEPER, SLIDER,
   LASER, RISER, BELT_R, BELT_L, PLATFORM, MARTEAU, PRESSE, ROUE, SPINNER, SCIE,
-  laserBank, riserUp, presseBasse, sensBalayage,
+  CANON,
+  laserBank, riserUp, presseBasse, canonTire, sensBalayage,
 } from './levelkit.js';
 
 const SWEEPER_PERIOD_BEATS = 6;
@@ -418,6 +419,7 @@ export class World {
     this.risers = [];
     this.presses = [];
     this.scies = [];
+    this.canons = [];
     this.lasers = [];
 
     const mobileMat = () => new THREE.MeshStandardMaterial({
@@ -571,6 +573,8 @@ export class World {
           groupe.add(lame);
           this.trackGroup.add(groupe);
           this.scies.push({ row, col, x: colX(col), groupe, lame });
+        } else if (ch === CANON) {
+          this.canons.push({ row, col, x: colX(col) });
         } else if (ch === PRESSE) {
           this.presses.push({ row, col, x: colX(col) });
         } else if (ch === RISER) {
@@ -590,6 +594,26 @@ export class World {
       const puits = new Builder(this.courbe);
       for (const r of this.risers) puits.box(r.x, 0.06, r.row * TILE, BLOCK_SIZE * 1.15, 0.14, BLOCK_SIZE * 1.15, p.accent);
       this.trackGroup.add(new THREE.Mesh(puits.geometry(), this._materials().neon));
+    }
+
+    if (this.canons.length) {
+      // Tourelle fixe, plus un faisceau vertical qui ne se montre que quand le
+      // canon tire. Le socle reste visible en permanence : le joueur doit voir
+      // où sont les canons bien avant de savoir s'ils tirent.
+      const socles = new Builder(this.courbe);
+      for (const cn of this.canons) {
+        socles.box(cn.x, 0.28, cn.row * TILE, TILE * 0.8, 0.56, TILE * 0.6, p.block);
+        socles.box(cn.x, 0.72, cn.row * TILE, TILE * 0.42, 0.5, TILE * 0.42, p.accent);
+      }
+      this.trackGroup.add(new THREE.Mesh(socles.geometry(), this._materials().solide));
+
+      const geo = new THREE.BoxGeometry(TILE * 0.42, 3.4, TILE * 0.42);
+      this.canonMesh = new THREE.InstancedMesh(
+        geo,
+        new THREE.MeshBasicMaterial({ toneMapped: false, transparent: true, opacity: 0.9 }),
+        this.canons.length);
+      this.canonMesh.frustumCulled = false;
+      this.trackGroup.add(this.canonMesh);
     }
 
     if (this.presses.length) {
@@ -770,6 +794,27 @@ export class World {
       s.groupe.position.set(w.x, w.y, w.z);
       s.groupe.rotation.y = w.cap;
       s.lame.rotation.x = -t * 9;
+    }
+
+    if (this.canonMesh) {
+      // L'état affiché est celui de la ligne la plus proche, jamais celui de
+      // l'horloge continue : c'est la règle qui garantit qu'on ne meurt pas
+      // d'un faisceau qu'on voyait éteint.
+      const feu = this._etatLigne(t, canonTire);
+      const vif = this._color.set(this.track.palette.block);
+      const froid = new THREE.Color(this.track.palette.accent).multiplyScalar(0.14);
+      for (let i = 0; i < this.canons.length; i++) {
+        const cn = this.canons[i];
+        const w = this.courbe.monde(cn.row, cn.x, 1 + feu * 0.75);
+        d.position.set(w.x, w.y, w.z);
+        d.rotation.set(0, w.cap, 0);
+        d.scale.set(1, Math.max(0.06, feu), 1);
+        d.updateMatrix();
+        this.canonMesh.setMatrixAt(i, d.matrix);
+        this.canonMesh.setColorAt(i, feu > 0.5 ? vif : froid);
+      }
+      this.canonMesh.instanceMatrix.needsUpdate = true;
+      if (this.canonMesh.instanceColor) this.canonMesh.instanceColor.needsUpdate = true;
     }
 
     if (this.presseMesh) {
