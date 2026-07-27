@@ -143,6 +143,21 @@ export function composeFromMusic(track) {
         }
         cible = Math.max(min, Math.min(max, cible));
 
+        // Canons : c'est le cycle de tir qui désigne la voie ouverte, pas la
+        // marche habituelle de la porte.
+        //
+        // Sans cela le rythme ne sert à rien : les canons occupent les
+        // colonnes qui ne sont pas la porte, le joueur suit la porte, et il
+        // n'est donc jamais dans un faisceau. Le tir décidait seulement si les
+        // murs étaient mortels, ce que personne ne pouvait constater.
+        //
+        // Le décalage reste borné à une colonne : la bille ne s'arrête jamais,
+        // une voie ouverte hors de portée serait une mort et non un rythme.
+        if (section.mode === 'canon') {
+          const temps = Math.floor((bar * 8 + pas) / track.rowsPerBeat) % 3;
+          cible = Math.max(min, Math.min(max, colonne + [0, 1, -1][temps]));
+        }
+
         for (let c = min; c <= max; c++) {
           if (Math.abs(c - cible) <= porte) continue;
           if (section.mode === 'trou') ligne[c] = VOID;

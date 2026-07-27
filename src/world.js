@@ -805,10 +805,14 @@ export class World {
       const froid = new THREE.Color(this.track.palette.accent).multiplyScalar(0.14);
       for (let i = 0; i < this.canons.length; i++) {
         const cn = this.canons[i];
-        const w = this.courbe.monde(cn.row, cn.x, 1 + feu * 0.75);
+        // Le faisceau pousse depuis le sol au lieu de flotter : au repos il ne
+        // reste qu'une lueur sur la piste, ce qui dit bien que la voie est
+        // libre, alors qu'une dalle suspendue laissait croire à un tir en l'air.
+        const hauteur = Math.max(0.04, feu);
+        const w = this.courbe.monde(cn.row, cn.x, 0.05 + hauteur * 1.7);
         d.position.set(w.x, w.y, w.z);
         d.rotation.set(0, w.cap, 0);
-        d.scale.set(1, Math.max(0.06, feu), 1);
+        d.scale.set(1, hauteur, 1);
         d.updateMatrix();
         this.canonMesh.setMatrixAt(i, d.matrix);
         this.canonMesh.setColorAt(i, feu > 0.5 ? vif : froid);
