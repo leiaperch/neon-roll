@@ -5,7 +5,7 @@ import {
 } from './config.js';
 import {
   VOID, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT, SWEEPER, SLIDER,
-  LASER, RISER, BELT_R, BELT_L, PLATFORM, MARTEAU, PRESSE, ROUE,
+  LASER, RISER, BELT_R, BELT_L, PLATFORM, MARTEAU, PRESSE, ROUE, SPINNER,
   laserBank, riserUp, presseBasse, sensBalayage,
 } from './levelkit.js';
 
@@ -16,6 +16,15 @@ const PLATFORM_HALF = TILE * 1.5; // trois colonnes de large
 const PLATFORM_AMPLITUDE = TILE; // une colonne de débattement
 const LASER_HALF = TILE * 1.5;
 const LASER_CENTER = TILE * 2; // centre des colonnes 0-2 et 4-6
+const SPINNER_LONGUEUR = 5.5; // demi-envergure d'un bras de spinner
+const SPINNER_PERIOD_BEATS = 4;
+/**
+ * Angle du spinner au moment où la bille atteint sa ligne. Choisi pour que
+ * l'emprise latérale ne couvre alors que la colonne centrale : les deux voies
+ * voisines restent libres, donc un refuge est toujours à une colonne de là,
+ * quelle que soit la trajectoire d'arrivée.
+ */
+const SPINNER_ANGLE_PASSAGE = Math.acos(1.3 / SPINNER_LONGUEUR);
 
 export const colX = (col) => (col - (COLS - 1) / 2) * TILE;
 
@@ -421,6 +430,29 @@ export class World {
             halfW: longueur / 2, halfD: TILE * 0.3,
             period: SWEEPER_PERIOD_BEATS * beat, x: 0,
           });
+        } else if (ch === SPINNER) {
+          // Croix qui tourne sans fin au milieu de la piste. Son emprise
+          // latérale se resserre quand elle s'aligne avec la piste et s'ouvre
+          // quand elle se met en travers : le passage sûr tourne avec elle.
+          const groupe = new THREE.Group();
+          groupe.position.set(colX(col), 1.1, row * TILE);
+          for (const orientation of [0, Math.PI / 2]) {
+            const bras = new THREE.Mesh(
+              new THREE.BoxGeometry(SPINNER_LONGUEUR * 2, 0.55, 0.6), mobileMat());
+            bras.rotation.y = orientation;
+            groupe.add(bras);
+          }
+          const moyeu = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.7, 0.9, 2.2, 10), mobileMat());
+          moyeu.position.y = -0.3;
+          groupe.add(moyeu);
+          this.trackGroup.add(groupe);
+          this.movers.push({
+            mesh: groupe, row, type: ch, solid: false,
+            anchorX: colX(col), longueur: SPINNER_LONGUEUR,
+            halfW: SPINNER_LONGUEUR, halfD: TILE * 0.3,
+            period: SPINNER_PERIOD_BEATS * beat, x: 0,
+          });
         } else if (ch === ROUE && !platesVues.has(`O${row}`)) {
           // Les roues arrivent en groupe, décalées : on se faufile entre elles.
           platesVues.add(`O${row}`);
@@ -530,6 +562,13 @@ export class World {
   moverEmprise(mover, t) {
     const arrivee = mover.row * this.rowDuration;
     const phase = (2 * Math.PI * (t - arrivee)) / mover.period;
+    if (mover.type === SPINNER) {
+      // La croix tourne sans fin ; c'est l'angle qui décide de son emprise.
+      const angle = SPINNER_ANGLE_PASSAGE + phase;
+      const bras = Math.abs(Math.cos(angle)) * mover.longueur;
+      const croix = Math.abs(Math.sin(angle)) * mover.longueur;
+      return { x: mover.anchorX, halfW: Math.max(0.7, Math.min(bras, croix)), angle };
+    }
     if (mover.type === MARTEAU) {
       const base = mover.sens > 0 ? 0 : Math.PI;
       const angle = base + mover.sens * (Math.PI / 2) * ((1 - Math.cos(phase)) / 2);
@@ -588,6 +627,11 @@ export class World {
     for (const m of this.movers) {
       const emprise = this.moverEmprise(m, t);
       m.x = emprise.x;
+      if (m.type === SPINNER) {
+        m.mesh.rotation.y = emprise.angle;
+        m.halfW = emprise.halfW;
+        continue;
+      }
       if (m.type === MARTEAU) {
         // Le bras est en travers de la piste au moment du passage, et s'efface
         // entre deux : on esquive du côté opposé à sa course.

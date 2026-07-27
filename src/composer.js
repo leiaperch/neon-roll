@@ -1,6 +1,7 @@
 import {
   VOID, FLOOR, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT,
-  SWEEPER, LASER, RISER, BELT_R, BELT_L, MARTEAU, PRESSE, ROUE, sensBalayage,
+  SWEEPER, LASER, RISER, BELT_R, BELT_L,
+  MARTEAU, PRESSE, ROUE, SPINNER, sensBalayage,
 } from './levelkit.js';
 
 /**
@@ -160,6 +161,14 @@ export function composeFromMusic(track) {
         }
         // Barre, marteau et roues partagent la même logique : un mobile posé
         // sur la ligne, et la porte placée du côté qu'il ne couvre pas.
+        // Le spinner est le seul mobile à laisser deux refuges, un de chaque
+        // côté de son moyeu : il ne peut donc jamais mettre la porte hors de
+        // portée, contrairement au marteau ou à la barre.
+        if (section.mode === 'spinner' && pas === premierePorte) {
+          for (let c = min; c <= max; c++) ligne[c] = FLOOR;
+          ligne[3] = SPINNER;
+          cible = colonne === 3 ? Math.min(max, colonne + 1) : colonne;
+        }
         const mobiles = { balayeuse: SWEEPER, marteau: MARTEAU, roue: ROUE };
         if (mobiles[section.mode] && pas === premierePorte) {
           // Le mobile couvre une moitié de piste au moment du passage, donc la

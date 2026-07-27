@@ -26,6 +26,7 @@ export const PLATFORM = 'P';
 export const MARTEAU = 'H'; // bras qui balaie à l'horizontale depuis un côté
 export const PRESSE = 'V'; // masse qui s'abat verticalement sur trois colonnes
 export const ROUE = 'O'; // roues qui traversent en groupe, décalées
+export const SPINNER = 'S'; // croix qui tourne en continu au milieu de la piste
 
 export const JUMP_ROWS = 5; // doit rester aligné sur config.js
 
@@ -33,7 +34,7 @@ export const JUMP_ROWS = 5; // doit rester aligné sur config.js
 export const SOLID = new Set([
   FLOOR, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT,
   SWEEPER, SLIDER, LASER, RISER, BELT_R, BELT_L,
-  MARTEAU, PRESSE, ROUE,
+  MARTEAU, PRESSE, ROUE, SPINNER,
 ]);
 
 export const ALL_CELLS = new Set([...SOLID, VOID, PLATFORM]);
