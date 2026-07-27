@@ -249,8 +249,7 @@ export class World {
         solide.box(x, -0.3, z, TILE * 0.97, 0.6, TILE * 0.97, base.getHex());
 
         if (ch === BLOCK) {
-          solide.box(x, BLOCK_HEIGHT / 2, z, BLOCK_SIZE, BLOCK_HEIGHT, BLOCK_SIZE, p.block);
-          neon.box(x, BLOCK_HEIGHT + 0.05, z, BLOCK_SIZE * 0.6, 0.12, BLOCK_SIZE * 0.6, p.accent);
+          // Dessiné plus bas, d'un seul tenant par tronçon.
         } else if (ch === JUMP) {
           neon.box(x, 0.09, z, TILE * 0.82, 0.18, TILE * 0.82, p.neon);
           solide.box(x, 0.05, z, TILE * 0.92, 0.1, TILE * 0.92, p.accent);
@@ -263,6 +262,30 @@ export class World {
           }
         } else if (ch === CHECKPOINT && col === rows[row].indexOf(CHECKPOINT)) {
           this._portique(solide, neon, z, p);
+        }
+      }
+
+      // Les blocs contigus deviennent une barrière d'un seul tenant.
+      //
+      // Posés colonne par colonne, ils formaient un alignement de gros cubes
+      // collés, avec des joints partout et aucune lecture d'ensemble. En un
+      // seul volume, la porte se lit comme une ouverture dans un mur, ce
+      // qu'elle est. La collision, elle, reste calculée case par case.
+      let debut = -1;
+      for (let col = 0; col <= COLS; col++) {
+        const bloc = col < COLS && grid.cellAt(row, col) === BLOCK;
+        if (bloc && debut < 0) debut = col;
+        if (!bloc && debut >= 0) {
+          const largeur = (col - debut) * TILE - (TILE - BLOCK_SIZE);
+          const centre = (colX(debut) + colX(col - 1)) / 2;
+          solide.box(centre, BLOCK_HEIGHT / 2, z, largeur, BLOCK_HEIGHT, BLOCK_SIZE * 0.82, p.block);
+          neon.box(centre, BLOCK_HEIGHT + 0.06, z, largeur * 0.94, 0.14, BLOCK_SIZE * 0.55, p.accent);
+          // Montants aux extrémités : ils marquent le bord de l'ouverture.
+          for (const bout of [debut, col - 1]) {
+            solide.box(colX(bout) + (bout === debut ? -1 : 1) * (BLOCK_SIZE * 0.42),
+              BLOCK_HEIGHT / 2, z, 0.22, BLOCK_HEIGHT * 1.12, BLOCK_SIZE * 0.9, p.accent);
+          }
+          debut = -1;
         }
       }
 
