@@ -16,15 +16,23 @@ const PLATFORM_HALF = TILE * 1.5; // trois colonnes de large
 const PLATFORM_AMPLITUDE = TILE; // une colonne de débattement
 const LASER_HALF = TILE * 1.5;
 const LASER_CENTER = TILE * 2; // centre des colonnes 0-2 et 4-6
-const SPINNER_LONGUEUR = 5.5; // demi-envergure d'un bras de spinner
-const SPINNER_PERIOD_BEATS = 4;
+const SPINNER_LONGUEUR = 5.5; // demi-envergure de la barre
 /**
- * Angle du spinner au moment où la bille atteint sa ligne. Choisi pour que
- * l'emprise latérale ne couvre alors que la colonne centrale : les deux voies
- * voisines restent libres, donc un refuge est toujours à une colonne de là,
- * quelle que soit la trajectoire d'arrivée.
+ * Le spinner tourne lentement, et c'est indispensable.
+ *
+ * La bille reste environ une demi-ligne dans la zone de collision. Si la barre
+ * tourne vite, son emprise change beaucoup pendant ce passage : elle peut être
+ * dégagée à l'instant précis de l'arrivée et barrer la voie une fraction de
+ * seconde plus tôt. Raisonner sur le seul instant d'arrivée, comme pour les
+ * obstacles qui translatent, devient alors faux.
  */
-const SPINNER_ANGLE_PASSAGE = Math.acos(1.3 / SPINNER_LONGUEUR);
+const SPINNER_PERIOD_BEATS = 10;
+/**
+ * Angle au moment du passage : la barre est alignée sur la piste, donc son
+ * emprise latérale se réduit au moyeu. Seule la colonne centrale est barrée,
+ * les deux voisines restent libres, et un refuge est toujours à une colonne.
+ */
+const SPINNER_ANGLE_PASSAGE = Math.PI / 2;
 
 export const colX = (col) => (col - (COLS - 1) / 2) * TILE;
 
@@ -436,11 +444,15 @@ export class World {
           // quand elle se met en travers : le passage sûr tourne avec elle.
           const groupe = new THREE.Group();
           groupe.position.set(colX(col), 1.1, row * TILE);
-          for (const orientation of [0, Math.PI / 2]) {
-            const bras = new THREE.Mesh(
-              new THREE.BoxGeometry(SPINNER_LONGUEUR * 2, 0.55, 0.6), mobileMat());
-            bras.rotation.y = orientation;
-            groupe.add(bras);
+          // Une seule barre traversant le moyeu : le maillage doit décrire la
+          // même chose que la collision, sinon on esquive ce qu'on ne voit pas.
+          const barre = new THREE.Mesh(
+            new THREE.BoxGeometry(SPINNER_LONGUEUR * 2, 0.55, 0.6), mobileMat());
+          groupe.add(barre);
+          for (const bout of [-1, 1]) {
+            const tete = new THREE.Mesh(new THREE.BoxGeometry(1, 0.9, 1), mobileMat());
+            tete.position.x = bout * (SPINNER_LONGUEUR - 0.4);
+            groupe.add(tete);
           }
           const moyeu = new THREE.Mesh(
             new THREE.CylinderGeometry(0.7, 0.9, 2.2, 10), mobileMat());
@@ -450,7 +462,12 @@ export class World {
           this.movers.push({
             mesh: groupe, row, type: ch, solid: false,
             anchorX: colX(col), longueur: SPINNER_LONGUEUR,
-            halfW: SPINNER_LONGUEUR, halfD: TILE * 0.3,
+            // La barre est fine en profondeur, sa collision doit l'être aussi.
+            // À 0,3 la zone atteignait presque une demi-ligne de part et
+            // d'autre, si bien qu'il fallait avoir déjà quitté la colonne
+            // centrale avant même d'aborder la ligne : 40 unités par seconde
+            // pour une bille qui plafonne à 38.
+            halfW: SPINNER_LONGUEUR, halfD: TILE * 0.16,
             period: SPINNER_PERIOD_BEATS * beat, x: 0,
           });
         } else if (ch === ROUE && !platesVues.has(`O${row}`)) {
@@ -564,10 +581,15 @@ export class World {
     const phase = (2 * Math.PI * (t - arrivee)) / mover.period;
     if (mover.type === SPINNER) {
       // La croix tourne sans fin ; c'est l'angle qui décide de son emprise.
+      // Une barre traversant le moyeu : son emprise latérale est sa longueur
+      // projetée sur l'axe des colonnes. Une croix, elle, couvrirait toujours
+      // au moins 0,7 fois sa longueur et serait un mur.
       const angle = SPINNER_ANGLE_PASSAGE + phase;
-      const bras = Math.abs(Math.cos(angle)) * mover.longueur;
-      const croix = Math.abs(Math.sin(angle)) * mover.longueur;
-      return { x: mover.anchorX, halfW: Math.max(0.7, Math.min(bras, croix)), angle };
+      return {
+        x: mover.anchorX,
+        halfW: Math.max(0.7, Math.abs(Math.cos(angle)) * mover.longueur),
+        angle,
+      };
     }
     if (mover.type === MARTEAU) {
       const base = mover.sens > 0 ? 0 : Math.PI;

@@ -101,8 +101,14 @@ export function isLethal(cell, row, col, rowsPerBeat) {
   if (cell === LASER) return laserBlocks(row, rowsPerBeat, col);
   if (cell === RISER) return riserUp(row, rowsPerBeat);
   if (cell === PRESSE) return presseBasse(row, rowsPerBeat);
-  // Le marteau et les roues sont des mobiles : leur côté sûr est calculé par
-  // le générateur, qui y place la porte. Ils portent donc, comme la barre.
+  // Le moyeu du spinner barre toujours sa propre colonne au moment du passage,
+  // puisque la barre y est alignée sur la piste. C'est déterministe, donc cela
+  // appartient au modèle statique : laissé aux mobiles, le chemin calculé
+  // traversait le moyeu, l'évitement le décalait, et ce décalage entrait en
+  // conflit avec la porte suivante.
+  if (cell === SPINNER) return true;
+  // Le marteau et les roues, eux, restent des mobiles : leur côté sûr est
+  // calculé par le générateur, qui y place la porte.
   return false;
 }
 

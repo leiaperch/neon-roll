@@ -1,4 +1,4 @@
-import { rowDuration, TILE, JUMP_ROWS } from './config.js';
+import { rowDuration, TILE, JUMP_ROWS, BALL_RADIUS } from './config.js';
 import { JUMP, riserUp, laserBank, sensBalayage } from './levelkit.js';
 
 /**
@@ -168,17 +168,34 @@ function eviterMobiles(chemin, track, world, rd) {
   // Un obstacle mobile est large en profondeur : il menace aussi les lignes
   // voisines, pas seulement la sienne. Ne regarder que sa propre ligne laisse
   // passer des trajectoires qui le percutent juste avant ou juste après.
-  // On interroge l'emprise réelle du mobile, largeur comprise : un marteau
-  // couvre une bande dont la taille varie avec l'angle du bras.
+  /**
+   * Une colonne est-elle barrée par un mobile au moment du passage ?
+   *
+   * Le seuil est celui de la collision réelle, plus une petite marge. Une
+   * marge fixe et généreuse paraît prudente, mais elle est calibrée sur les
+   * mobiles larges : appliquée à un mobile étroit, elle rejette des colonnes
+   * pourtant sûres, pousse la trajectoire trop loin, et fabrique une
+   * contradiction avec la porte suivante. Le chemin devient alors
+   * infranchissable alors que le niveau, lui, est correct.
+   */
   const barre = (row, x) => world.movers.some((m) => {
     if (m.solid || Math.abs(m.row - row) > 1) return false;
     const e = world.moverEmprise(m, row * rd);
-    return Math.abs(x - e.x) < e.halfW + 0.9;
+    return Math.abs(x - e.x) < e.halfW + BALL_RADIUS * 0.7 + 0.2;
   });
   for (let r = 0; r < chemin.length; r++) {
     const c = Math.round(chemin[r]);
     if (!barre(r, colX(c))) continue;
-    for (const d of [-1, 1, -2, 2]) {
+    // On esquive du côté où va la suite du chemin. Choisir toujours la gauche
+    // paraît anodin, mais si la ligne suivante impose la droite, on fabrique
+    // un saut de deux colonnes que la passe de recollage défait ensuite en
+    // ramenant la trajectoire dans l'obstacle qu'on venait d'éviter.
+    const suivante = Math.round(chemin[Math.min(chemin.length - 1, r + 1)]);
+    const precedente = Math.round(chemin[Math.max(0, r - 1)]);
+    const vise = (suivante + precedente) / 2;
+    const candidats = [-1, 1, -2, 2]
+      .sort((a, b) => Math.abs(c + a - vise) - Math.abs(c + b - vise));
+    for (const d of candidats) {
       if (track.grid.isSafe(r, c + d) && !barre(r, colX(c + d))) {
         chemin[r] = c + d;
         break;
@@ -195,8 +212,12 @@ function eviterMobiles(chemin, track, world, rd) {
       const ici = Math.round(chemin[r]);
       if (Math.abs(ici - avant) <= 1) continue;
       const vers = avant + Math.sign(ici - avant);
+      // Les deux branches vérifient les mobiles. Sans cette vérification, le
+      // recollage ramenait la trajectoire dans l'obstacle que l'évitement
+      // venait tout juste de contourner : lisser un saut ne doit jamais se
+      // payer d'une collision.
       if (track.grid.isSafe(r - 1, vers) && !barre(r - 1, colX(vers))) chemin[r - 1] = vers;
-      else if (track.grid.isSafe(r, avant + Math.sign(ici - avant))) chemin[r] = avant + Math.sign(ici - avant);
+      else if (track.grid.isSafe(r, vers) && !barre(r, colX(vers))) chemin[r] = vers;
     }
   }
   return chemin;
