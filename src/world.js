@@ -574,7 +574,7 @@ export class World {
           this.trackGroup.add(groupe);
           this.scies.push({ row, col, x: colX(col), groupe, lame });
         } else if (ch === CANON) {
-          this.canons.push({ row, col, x: colX(col) });
+          // Regroupé plus bas en barres horizontales, pas colonne par colonne.
         } else if (ch === PRESSE) {
           this.presses.push({ row, col, x: colX(col) });
         } else if (ch === RISER) {
@@ -596,18 +596,44 @@ export class World {
       this.trackGroup.add(new THREE.Mesh(puits.geometry(), this._materials().neon));
     }
 
+    // Les canons contigus d'une ligne forment une seule barre horizontale.
+    //
+    // Le joueur se déplace latéralement : c'est donc latéralement que
+    // l'obstacle doit parler. Une barre qui se ferme depuis les bords vers
+    // l'ouverture dit où aller ; un faisceau qui monte et descend pompe sur un
+    // axe où le joueur n'a aucune décision à prendre.
+    for (let row = 0; row < totalRows; row++) {
+      let debut = -1;
+      for (let col = 0; col <= COLS; col++) {
+        const est = col < COLS && grid.cellAt(row, col) === CANON;
+        if (est && debut < 0) debut = col;
+        if (!est && debut >= 0) {
+          const a = colX(debut);
+          const b = colX(col - 1);
+          const longueur = (col - debut) * TILE;
+          // L'extrémité fixe est celle qui touche le bord de piste : la barre
+          // se referme donc vers l'intérieur, vers l'ouverture.
+          const exterieur = Math.abs(a) >= Math.abs(b) ? a - TILE / 2 : b + TILE / 2;
+          const sens = Math.abs(a) >= Math.abs(b) ? 1 : -1;
+          this.canons.push({ row, exterieur, sens, longueur });
+          debut = -1;
+        }
+      }
+    }
+
     if (this.canons.length) {
-      // Tourelle fixe, plus un faisceau vertical qui ne se montre que quand le
-      // canon tire. Le socle reste visible en permanence : le joueur doit voir
-      // où sont les canons bien avant de savoir s'ils tirent.
+      // Émetteur planté au bord de la piste, d'où part la barre. Il reste
+      // visible en permanence : on doit voir où sont les canons bien avant de
+      // savoir s'ils tirent.
       const socles = new Builder(this.courbe);
       for (const cn of this.canons) {
-        socles.box(cn.x, 0.28, cn.row * TILE, TILE * 0.8, 0.56, TILE * 0.6, p.block);
-        socles.box(cn.x, 0.72, cn.row * TILE, TILE * 0.42, 0.5, TILE * 0.42, p.accent);
+        socles.box(cn.exterieur, 0.9, cn.row * TILE, 0.7, 1.8, TILE * 0.6, p.block);
+        socles.box(cn.exterieur, 1.6, cn.row * TILE, 0.9, 0.4, TILE * 0.5, p.accent);
       }
       this.trackGroup.add(new THREE.Mesh(socles.geometry(), this._materials().solide));
 
-      const geo = new THREE.BoxGeometry(TILE * 0.42, 3.4, TILE * 0.42);
+      // Barre horizontale de longueur unité : chaque instance l'étire.
+      const geo = new THREE.BoxGeometry(1, 0.75, TILE * 0.34);
       this.canonMesh = new THREE.InstancedMesh(
         geo,
         new THREE.MeshBasicMaterial({ toneMapped: false, transparent: true, opacity: 0.9 }),
@@ -805,14 +831,15 @@ export class World {
       const froid = new THREE.Color(this.track.palette.accent).multiplyScalar(0.14);
       for (let i = 0; i < this.canons.length; i++) {
         const cn = this.canons[i];
-        // Le faisceau pousse depuis le sol au lieu de flotter : au repos il ne
-        // reste qu'une lueur sur la piste, ce qui dit bien que la voie est
-        // libre, alors qu'une dalle suspendue laissait croire à un tir en l'air.
-        const hauteur = Math.max(0.04, feu);
-        const w = this.courbe.monde(cn.row, cn.x, 0.05 + hauteur * 1.7);
+        // La barre se referme depuis le bord de piste vers l'ouverture. Son
+        // extrémité extérieure est fixe, seule sa longueur change, donc le
+        // mouvement se lit sur l'axe où le joueur agit.
+        const longueur = Math.max(0.06, feu) * cn.longueur;
+        const centre = cn.exterieur + cn.sens * (longueur / 2);
+        const w = this.courbe.monde(cn.row, centre, 0.62);
         d.position.set(w.x, w.y, w.z);
         d.rotation.set(0, w.cap, 0);
-        d.scale.set(1, hauteur, 1);
+        d.scale.set(longueur, 1, 1);
         d.updateMatrix();
         this.canonMesh.setMatrixAt(i, d.matrix);
         this.canonMesh.setColorAt(i, feu > 0.5 ? vif : froid);
