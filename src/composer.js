@@ -67,7 +67,9 @@ export function composeFromMusic(track) {
   // c'est le rythme qu'un joueur soutient. La paire collée n'est tolérée que
   // si une ligne dure déjà presque autant.
   const minEcart = Math.max(1, Math.ceil(0.25 / dureeLigne));
-  const paireAutorisee = dureeLigne >= 0.24;
+  // La paire collée est ce qui donne le « boum boum » : on l'ouvre à toutes
+  // les pistes où une croche laisse encore le temps de traverser.
+  const paireAutorisee = dureeLigne >= 0.2;
   const reposApresPaire = Math.max(minEcart, Math.ceil(0.45 / dureeLigne));
 
   // Les attaques sont filtrées sur toute la piste et non mesure par mesure :

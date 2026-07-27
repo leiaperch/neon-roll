@@ -55,19 +55,30 @@ export function phaseDe(bar) {
  * Sections du niveau calées sur ces phases : le mur arrive avec le drop, la
  * piste s'ouvre pendant le pont, et le saut tombe sur la reprise.
  */
+/**
+ * Plan de sections.
+ *
+ * La difficulté ne monte pas en accélérant le rythme des esquives, qui est
+ * borné par ce qu'un joueur peut soutenir, mais en jouant sur trois autres
+ * leviers : l'enjeu, avec des trous où l'erreur est fatale au lieu d'être un
+ * simple choc ; l'amplitude, avec des portes qui traversent deux colonnes
+ * d'un coup ; et la précision, avec des passages où la porte ne fait plus
+ * qu'une colonne de large.
+ */
 export function sectionsEDM({ dur = 'bloc', variante = 'trou', respiration = 'tapis' } = {}) {
   return plan([
-    [4, { mode: 'calme', largeur: 5 }],
-    [3, { mode: 'bloc', largeur: 5, porte: 1 }],
+    [3, { mode: 'calme', largeur: 5 }],
     [1, { mode: 'halte' }],
     [4, { mode: 'bloc', largeur: 5, porte: 1 }],
     [4, { mode: variante, largeur: 5, porte: 1 }],
     [1, { mode: 'halte' }],
-    [3, { mode: respiration, largeur: 5 }],
-    [3, { mode: 'bloc', largeur: 7, porte: 1 }],
+    [3, { mode: 'trou', largeur: 5, porte: 1 }],
     [1, { mode: 'saut', couronne: true }],
-    [4, { mode: dur, largeur: 5, porte: 1, couronne: true }],
-    [3, { mode: variante, largeur: 7, porte: 1 }],
+    [3, { mode: respiration, largeur: 5 }],
+    [3, { mode: 'bloc', largeur: 7, porte: 1, bond: 2 }], // grandes traversées
+    [1, { mode: 'halte' }],
+    [4, { mode: dur, largeur: 5, porte: 0, couronne: true }], // porte d'une colonne
+    [3, { mode: variante, largeur: 7, porte: 1, bond: 2 }],
     [1, { mode: 'calme', largeur: 5, couronne: true }],
   ]);
 }

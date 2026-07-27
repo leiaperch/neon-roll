@@ -244,8 +244,7 @@ export class World {
             neon.box(x + i * 0.5 * dir, 0.13, z + i * 0.35, 0.34, 0.08, 0.9, p.neon);
           }
         } else if (ch === CHECKPOINT && col === rows[row].indexOf(CHECKPOINT)) {
-          for (const side of [-1, 1]) neon.box(side * (TRACK_HALF + 0.9), 1.6, z, 0.3, 3.2, 0.3, p.accent);
-          neon.box(0, 3.25, z, (TRACK_HALF + 1.05) * 2, 0.3, 0.3, p.accent);
+          this._portique(solide, neon, z, p);
         }
       }
 
@@ -258,6 +257,48 @@ export class World {
     const mats = this._materials();
     this.trackGroup.add(new THREE.Mesh(solide.geometry(), mats.solide));
     this.trackGroup.add(new THREE.Mesh(neon.geometry(), mats.neon));
+  }
+
+  /**
+   * Portique de checkpoint.
+   *
+   * Il doit se voir de loin et se comprendre sans texte, donc trois signaux
+   * qui se renforcent : un marquage au sol qui barre toute la piste, des
+   * chevrons qui disent le sens, et une structure verticale assez épaisse
+   * pour se détacher du décor. Deux tiges et une barre ne suffisaient pas.
+   */
+  _portique(solide, neon, z, p) {
+    const largeur = (TRACK_HALF + 1.4) * 2;
+
+    // Bande peinte au sol, plus deux liserés qui l'encadrent.
+    neon.box(0, 0.06, z, TRACK_HALF * 2 + TILE, 0.12, TILE * 0.5, p.accent);
+    for (const d of [-1, 1]) {
+      neon.box(0, 0.05, z + d * TILE * 0.42, TRACK_HALF * 2 + TILE, 0.1, TILE * 0.12, p.neon);
+    }
+    // Chevrons : ils indiquent le sens de la marche.
+    for (let i = -2; i <= 2; i++) {
+      neon.box(i * TILE * 0.9, 0.07, z - TILE * 0.62, TILE * 0.34, 0.12, TILE * 0.2, p.neon);
+    }
+
+    for (const side of [-1, 1]) {
+      const x = side * (TRACK_HALF + 1.4);
+      solide.box(x, 0.4, z, 1.5, 0.8, 1.5, p.block); // socle massif
+      solide.box(x, 2.6, z, 0.85, 4.4, 0.85, p.block); // fût
+      neon.box(x, 2.6, z, 0.95, 3.6, 0.24, p.accent); // bande lumineuse verticale
+      solide.box(x, 5.1, z, 1.3, 0.7, 1.3, p.block); // chapiteau
+      neon.box(x, 5.5, z, 1.05, 0.3, 1.05, p.neon); // lampe
+      // Fanion, orienté vers l'intérieur de la piste.
+      neon.box(x - side * 0.9, 4.5, z, 1.4, 0.9, 0.14, p.accent);
+    }
+
+    // Poutre principale, doublée d'un néon plus fin au-dessus.
+    solide.box(0, 5.4, z, largeur, 0.55, 0.8, p.block);
+    neon.box(0, 5.05, z, largeur - 0.6, 0.22, 0.5, p.accent);
+    neon.box(0, 5.95, z, largeur - 1.6, 0.16, 0.36, p.neon);
+    // Dents suspendues sous la poutre : elles cadrent le passage.
+    for (let i = -3; i <= 3; i++) {
+      neon.box(i * (largeur / 8), 4.6, z, 0.16, 0.9, 0.16, p.neon);
+    }
   }
 
   _edge(row, dir) {
