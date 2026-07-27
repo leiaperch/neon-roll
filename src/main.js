@@ -11,8 +11,12 @@ for (const piste of validateAll()) {
   if (piste.erreurs.length) console.warn(`piste ${piste.id} incohérente :`, piste.erreurs);
 }
 
+const PARAMS = new URLSearchParams(location.search);
 // `?debug` garde le tampon de dessin lisible, pour les captures d'écran.
-const DEBUG = new URLSearchParams(location.search).has('debug');
+const DEBUG = PARAMS.has('debug');
+// `?hero` (ou `?embed`) : mode vitrine embarqué — pas de pochette, la piste est
+// prête et se lance au premier clic (pour l'intégration dans un portfolio).
+const HERO = PARAMS.has('hero') || PARAMS.has('embed');
 
 const canvas = document.querySelector('#scene');
 const renderer = new THREE.WebGLRenderer({
@@ -84,8 +88,24 @@ ui.bind({
 ui.setMuted(false);
 ui.applyPalette(courante);
 game.load(courante);
-ui.buildSleeve(TRACKS, save);
-ui.showSleeve();
+
+if (HERO) {
+  // vitrine : aucune pochette, la piste est posée et n'attend qu'un clic
+  document.body.classList.add('is-hero');
+  ui._panel('');
+  world.updateCamera(game.player, 0);
+  const hint = document.createElement('div');
+  hint.id = 'hero-hint';
+  hint.textContent = '▶ clique pour jouer';
+  document.body.append(hint);
+  const lancerAuClic = () => {
+    if (game.state === STATE.MENU) { hint.remove(); launch(true); }
+  };
+  canvas.addEventListener('pointerdown', lancerAuClic);
+} else {
+  ui.buildSleeve(TRACKS, save);
+  ui.showSleeve();
+}
 
 // Pendant l'animation de chute, le panneau n'est pas encore là : une tape sur
 // la piste relance immédiatement, sans attendre.

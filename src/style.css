@@ -379,3 +379,27 @@ button.ghost {
 }
 
 button.cta:active, button.ghost:active { transform: translateY(1px); }
+
+/* mode vitrine embarqué (?hero) : indice « clique pour jouer » */
+#hero-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  z-index: 30;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-family: var(--mono, monospace);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #0b0a09;
+  background: var(--accent);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  animation: heroPulse 1.6s ease-in-out infinite;
+}
+@keyframes heroPulse {
+  0%, 100% { opacity: 0.85; transform: translateX(-50%) scale(1); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
+}
