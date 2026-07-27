@@ -29,7 +29,10 @@ export class Courbe {
    * @param {object} options amplitude des virages et des pentes
    */
   constructor(lignes, {
-    graine = 1, virage = 0.055, pente = 0.9, longueurVirage = 26, longueurPente = 34,
+    // Le virage est un cap visé, en radians : c'est le changement de direction
+    // qui se voit, bien plus que la dérive latérale accumulée. La pente est une
+    // hauteur visée, en unités de monde.
+    graine = 1, virage = 0.34, pente = 3.2, longueurVirage = 22, longueurPente = 30,
   } = {}) {
     const rnd = profil(graine);
     this.points = new Array(lignes + 2);
@@ -63,8 +66,8 @@ export class Courbe {
 
       // Le cap et la hauteur sont lissés vers leur consigne, jamais imposés :
       // une dérivée discontinue se verrait comme un angle vif dans le sol.
-      cap += (consigneCap - cap) * 0.06;
-      y += (consigneY - y) * 0.05;
+      cap += (consigneCap - cap) * 0.09;
+      y += (consigneY - y) * 0.06;
 
       this.points[row] = { x, y, z, cap };
       x += Math.sin(cap) * TILE;

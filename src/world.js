@@ -3,6 +3,7 @@ import {
   COLS, TILE, TRACK_HALF, BALL_RADIUS, BLOCK_SIZE, BLOCK_HEIGHT,
   rowDuration, trackSpeed, cameraDistance,
 } from './config.js';
+import { Courbe } from './courbe.js';
 import {
   VOID, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT, SWEEPER, SLIDER,
   LASER, RISER, BELT_R, BELT_L, PLATFORM, MARTEAU, PRESSE, ROUE, SPINNER,
@@ -36,12 +37,21 @@ const SPINNER_ANGLE_PASSAGE = Math.PI / 2;
 
 export const colX = (col) => (col - (COLS - 1) / 2) * TILE;
 
-/** Accumulateur de triangles : un seul maillage par matériau. */
+/**
+ * Accumulateur de triangles : un seul maillage par matériau.
+ *
+ * Il reçoit des coordonnées dans le repère de la piste, où `x` est l'écart
+ * latéral et `z` la distance parcourue. Quand une courbe lui est confiée, il
+ * plie ce repère sur elle au moment d'écrire les sommets. Tout le code de
+ * construction, sol, barrières, portiques et décors des onze pistes, continue
+ * donc de raisonner sur une piste droite sans rien savoir des virages.
+ */
 class Builder {
-  constructor() {
+  constructor(courbe = null) {
     this.pos = [];
     this.nor = [];
     this.col = [];
+    this.courbe = courbe;
   }
 
   get empty() {
@@ -68,8 +78,21 @@ class Builder {
     for (const [t1, t2, n, mul] of faces) {
       for (const tri of [t1, t2]) {
         for (const idx of tri) {
-          this.pos.push(v[idx][0], v[idx][1], v[idx][2]);
-          this.nor.push(n[0], n[1], n[2]);
+          const [x, y, z] = v[idx];
+          if (!this.courbe) {
+            this.pos.push(x, y, z);
+            this.nor.push(n[0], n[1], n[2]);
+          } else {
+            const p = this.courbe.monde(z / TILE, x, y);
+            this.pos.push(p.x, p.y, p.z);
+            // La normale tourne avec la piste. Sans cela l'éclairage reste
+            // celui d'une ligne droite et les virages paraissent plats.
+            this.nor.push(
+              n[0] * Math.cos(p.cap) + n[2] * Math.sin(p.cap),
+              n[1],
+              -n[0] * Math.sin(p.cap) + n[2] * Math.cos(p.cap),
+            );
+          }
           this.col.push(c.r * mul, c.g * mul, c.b * mul);
         }
       }
@@ -198,6 +221,11 @@ export class World {
     this.ballMaterial.emissive.set(p.accent);
     this.ballMaterial.emissiveIntensity = 0.1;
 
+    // Le tracé est tiré de l'identifiant de la piste : chacune a le sien,
+    // toujours le même, et le disque cesse d'être onze lignes droites.
+    const graine = [...track.id].reduce((n, c) => n + c.charCodeAt(0), track.bpm);
+    this.courbe = new Courbe(track.totalRows, { graine });
+
     this.trackGroup = new THREE.Group();
     this.scene.add(this.trackGroup);
     this.trackGroup.add(starfield(p.neon));
@@ -235,8 +263,8 @@ export class World {
 
   _buildStatic() {
     const { rows, totalRows, grid, palette: p } = this.track;
-    const solide = new Builder();
-    const neon = new Builder();
+    const solide = new Builder(this.courbe);
+    const neon = new Builder(this.courbe);
 
     for (let row = 0; row < totalRows; row++) {
       const z = row * TILE;
@@ -354,8 +382,8 @@ export class World {
 
   _buildDecor() {
     if (!this.track.decor) return;
-    const solide = new Builder();
-    const neon = new Builder();
+    const solide = new Builder(this.courbe);
+    const neon = new Builder(this.courbe);
     this.track.decor({
       rows: this.track.totalRows,
       TILE,
@@ -398,7 +426,7 @@ export class World {
           const profondeur = balayeuse ? TILE * 0.8 : BLOCK_SIZE;
           const mesh = new THREE.Mesh(
             new THREE.BoxGeometry(largeur, BLOCK_HEIGHT, profondeur), mobileMat());
-          mesh.position.set(0, BLOCK_HEIGHT / 2, row * TILE);
+          mesh.position.set(0, BLOCK_HEIGHT / 2, 0);
           this.trackGroup.add(mesh);
           // Le sens se déduit de la ligne, pas de l'ordre de création : le
           // générateur de carte doit pouvoir calculer le côté sûr lui aussi.
@@ -421,7 +449,7 @@ export class World {
             new THREE.MeshStandardMaterial({
               color: p.floors[0], roughness: 0.5, metalness: 0.1, flatShading: true,
             }));
-          mesh.position.set(0, -0.3, ((row + fin) / 2) * TILE);
+          mesh.position.set(0, -0.3, 0);
           this.trackGroup.add(mesh);
           this.movers.push({
             mesh, row, rowEnd: fin, type: ch, solid: true,
@@ -439,13 +467,13 @@ export class World {
           const groupe = new THREE.Group();
           const montant = new THREE.Mesh(
             new THREE.CylinderGeometry(0.45, 0.6, 3.4, 8), mobileMat());
-          montant.position.set(pivotX, 1.7, row * TILE);
+          montant.position.set(pivotX, 1.7, 0);
           const bras = new THREE.Mesh(
             new THREE.BoxGeometry(longueur, 0.7, 0.7), mobileMat());
           // Le bras est décalé pour pivoter autour du montant, pas du centre.
           bras.position.set(-longueur / 2, 0, 0);
           const pivot = new THREE.Group();
-          pivot.position.set(pivotX, 1.5, row * TILE);
+          pivot.position.set(pivotX, 1.5, 0);
           pivot.add(bras);
           const tete = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.4, 1.4), mobileMat());
           tete.position.set(-longueur + 0.5, 0, 0);
@@ -466,7 +494,7 @@ export class World {
           // latérale se resserre quand elle s'aligne avec la piste et s'ouvre
           // quand elle se met en travers : le passage sûr tourne avec elle.
           const groupe = new THREE.Group();
-          groupe.position.set(colX(col), 1.1, row * TILE);
+          groupe.position.set(0, 1.1, 0);
           // Une seule barre traversant le moyeu : le maillage doit décrire la
           // même chose que la collision, sinon on esquive ce qu'on ne voit pas.
           const barre = new THREE.Mesh(
@@ -502,7 +530,7 @@ export class World {
             const geo = new THREE.CylinderGeometry(0.85, 0.85, TILE * 0.7, 12);
             geo.rotateX(Math.PI / 2);
             const roue = new THREE.Mesh(geo, mobileMat());
-            roue.position.set(0, 0.85, row * TILE);
+            roue.position.set(0, 0.85, 0);
             this.trackGroup.add(roue);
             this.movers.push({
               mesh: roue, row, type: ch, solid: false, roulante: true,
@@ -512,11 +540,11 @@ export class World {
             });
           }
         } else if (ch === PRESSE) {
-          this.presses.push({ row, col, x: colX(col), z: row * TILE });
+          this.presses.push({ row, col, x: colX(col) });
         } else if (ch === RISER) {
-          this.risers.push({ row, col, x: colX(col), z: row * TILE });
+          this.risers.push({ row, col, x: colX(col) });
         } else if (ch === LASER && col === 3) {
-          this.lasers.push({ row, z: row * TILE, bank: laserBank(row, rowsPerBeat) });
+          this.lasers.push({ row, bank: laserBank(row, rowsPerBeat) });
         }
       }
     }
@@ -527,8 +555,8 @@ export class World {
       this.riserMesh.frustumCulled = false;
       this.trackGroup.add(this.riserMesh);
       // Puits d'où sort le piston, pour que la case reste lisible baissée.
-      const puits = new Builder();
-      for (const r of this.risers) puits.box(r.x, 0.06, r.z, BLOCK_SIZE * 1.15, 0.14, BLOCK_SIZE * 1.15, p.accent);
+      const puits = new Builder(this.courbe);
+      for (const r of this.risers) puits.box(r.x, 0.06, r.row * TILE, BLOCK_SIZE * 1.15, 0.14, BLOCK_SIZE * 1.15, p.accent);
       this.trackGroup.add(new THREE.Mesh(puits.geometry(), this._materials().neon));
     }
 
@@ -540,10 +568,10 @@ export class World {
       this.presseMesh = new THREE.InstancedMesh(geo, mobileMat(), this.presses.length);
       this.presseMesh.frustumCulled = false;
       this.trackGroup.add(this.presseMesh);
-      const rails = new Builder();
+      const rails = new Builder(this.courbe);
       for (const pr of this.presses) {
-        rails.box(pr.x, 5.4, pr.z, 0.24, 3.6, 0.24, p.accent);
-        rails.box(pr.x, 7.1, pr.z, TILE * 0.98, 0.4, TILE * 0.9, p.accent);
+        rails.box(pr.x, 5.4, pr.row * TILE, 0.24, 3.6, 0.24, p.accent);
+        rails.box(pr.x, 7.1, pr.row * TILE, TILE * 0.98, 0.4, TILE * 0.9, p.accent);
       }
       this.trackGroup.add(new THREE.Mesh(rails.geometry(), this._materials().neon));
     }
@@ -557,9 +585,9 @@ export class World {
       this.laserMesh.frustumCulled = false;
       this.trackGroup.add(this.laserMesh);
       // Bornes fixes de chaque côté, elles annoncent la barrière de loin.
-      const bornes = new Builder();
+      const bornes = new Builder(this.courbe);
       for (const l of this.lasers) {
-        for (const side of [-1, 1]) bornes.box(side * (TRACK_HALF + 0.7), 1.4, l.z, 0.4, 2.8, 0.4, p.accent);
+        for (const side of [-1, 1]) bornes.box(side * (TRACK_HALF + 0.7), 1.4, l.row * TILE, 0.4, 2.8, 0.4, p.accent);
       }
       this.trackGroup.add(new THREE.Mesh(bornes.geometry(), this._materials().neon));
     }
@@ -572,8 +600,8 @@ export class World {
     for (let row = 0; row < totalRows; row++) {
       for (let col = 0; col < COLS; col++) {
         const ch = grid.cellAt(row, col);
-        if (ch === DIAMOND) this.diamonds.push({ x: colX(col), z: row * TILE, taken: false });
-        else if (ch === CROWN) this.crowns.push({ x: colX(col), z: row * TILE, taken: false });
+        if (ch === DIAMOND) this.diamonds.push({ row, x: colX(col), taken: false });
+        else if (ch === CROWN) this.crowns.push({ row, x: colX(col), taken: false });
       }
     }
     this.diamondMesh = new THREE.InstancedMesh(
@@ -672,8 +700,17 @@ export class World {
     for (const m of this.movers) {
       const emprise = this.moverEmprise(m, t);
       m.x = emprise.x;
+      // Les mobiles sont construits à l'origine de leur ligne : c'est la
+      // courbe qui les pose et les oriente. Leur écart latéral reste exprimé
+      // dans le repère de la piste, comme la collision.
+      const ligne = m.rowEnd === undefined ? m.row : (m.row + m.rowEnd) / 2;
+      const ancre = m.type === SPINNER || m.type === MARTEAU ? 0 : m.x;
+      const w = this.courbe.monde(ligne, ancre, 0);
+      m.mesh.position.set(w.x, w.y, w.z);
+      m.mesh.rotation.y = w.cap;
+
       if (m.type === SPINNER) {
-        m.mesh.rotation.y = emprise.angle;
+        m.mesh.rotation.y = w.cap + emprise.angle;
         m.halfW = emprise.halfW;
         continue;
       }
@@ -684,7 +721,6 @@ export class World {
         m.halfW = emprise.halfW;
         continue;
       }
-      m.mesh.position.x = m.x;
       if (m.roulante) m.mesh.rotation.z = -m.x / 0.85;
     }
 
@@ -692,8 +728,9 @@ export class World {
       for (let i = 0; i < this.presses.length; i++) {
         const pr = this.presses[i];
         const bas = this.presseEtat(t, pr.row);
-        d.position.set(pr.x, 0.95 + (1 - bas) * 3.4, pr.z);
-        d.rotation.set(0, 0, 0);
+        const w = this.courbe.monde(pr.row, pr.x, 0.95 + (1 - bas) * 3.4);
+        d.position.set(w.x, w.y, w.z);
+        d.rotation.set(0, w.cap, 0);
         d.scale.setScalar(1);
         d.updateMatrix();
         this.presseMesh.setMatrixAt(i, d.matrix);
@@ -705,8 +742,9 @@ export class World {
       const h = this.riserHeight(t);
       for (let i = 0; i < this.risers.length; i++) {
         const r = this.risers[i];
-        d.position.set(r.x, BLOCK_HEIGHT / 2 - BLOCK_HEIGHT * (1 - h), r.z);
-        d.rotation.set(0, 0, 0);
+        const w = this.courbe.monde(r.row, r.x, BLOCK_HEIGHT / 2 - BLOCK_HEIGHT * (1 - h));
+        d.position.set(w.x, w.y, w.z);
+        d.rotation.set(0, w.cap, 0);
         d.scale.setScalar(1);
         d.updateMatrix();
         this.riserMesh.setMatrixAt(i, d.matrix);
@@ -727,8 +765,10 @@ export class World {
         ['gauche', 'droite'].forEach((cote, k) => {
           const idx = i * 2 + k;
           const allume = cote === l.bank;
-          d.position.set(cote === 'gauche' ? -LASER_CENTER : LASER_CENTER, allume ? 1.35 : 0.2, l.z);
-          d.rotation.set(0, 0, 0);
+          const lateral = cote === 'gauche' ? -LASER_CENTER : LASER_CENTER;
+          const w = this.courbe.monde(l.row, lateral, allume ? 1.35 : 0.2);
+          d.position.set(w.x, w.y, w.z);
+          d.rotation.set(0, w.cap, 0);
           d.scale.set(1, allume ? 1 : 0.12, 1);
           d.updateMatrix();
           this.laserMesh.setMatrixAt(idx, d.matrix);
@@ -741,7 +781,8 @@ export class World {
 
     for (let i = 0; i < this.diamonds.length; i++) {
       const dia = this.diamonds[i];
-      d.position.set(dia.x, dia.taken ? -999 : 0.95 + Math.sin(t * 3 + i) * 0.12, dia.z);
+      const w = this.courbe.monde(dia.row, dia.x, 0.95 + Math.sin(t * 3 + i) * 0.12);
+      d.position.set(w.x, dia.taken ? -999 : w.y, w.z);
       d.rotation.set(0.4, t * 2.2 + i, 0);
       d.scale.setScalar(dia.taken ? 0.0001 : 1);
       d.updateMatrix();
@@ -751,7 +792,8 @@ export class World {
 
     for (let i = 0; i < this.crowns.length; i++) {
       const cr = this.crowns[i];
-      d.position.set(cr.x, cr.taken ? -999 : 1.05 + Math.sin(t * 2 + i) * 0.1, cr.z);
+      const w = this.courbe.monde(cr.row, cr.x, 1.05 + Math.sin(t * 2 + i) * 0.1);
+      d.position.set(w.x, cr.taken ? -999 : w.y, w.z);
       d.rotation.set(0, t * 1.4 + i, 0);
       d.scale.setScalar(cr.taken ? 0.0001 : 1.15);
       d.updateMatrix();
@@ -759,29 +801,53 @@ export class World {
     }
     this.crownMesh.instanceMatrix.needsUpdate = true;
 
-    this.ball.position.set(player.x, player.y, player.z);
+    // La bille avance en distance parcourue et en écart latéral ; c'est ici,
+    // et seulement ici, que ces deux grandeurs deviennent une position.
+    const ligneBille = player.z / TILE;
+    const b = this.courbe.monde(ligneBille, player.x, player.y);
+    this.ball.position.set(b.x, b.y, b.z);
     this.ball.rotation.x = player.z / BALL_RADIUS;
     this.ball.rotation.z = -player.x / BALL_RADIUS;
-    this.ballShadow.position.set(player.x, 0.03, player.z);
-    this.ballShadow.visible = player.y < 3;
-    this.ballShadow.material.opacity = 0.35 * Math.max(0, 1 - player.y / 3);
 
-    this.sun.position.set(player.x + 6, 14, player.z - 6);
-    this.sun.target.position.set(player.x, 0, player.z);
+    const sol = this.courbe.monde(ligneBille, player.x, 0.03);
+    this.ballShadow.position.set(sol.x, sol.y, sol.z);
+    const hauteurSol = player.y - 0;
+    this.ballShadow.visible = hauteurSol < 3;
+    this.ballShadow.material.opacity = 0.35 * Math.max(0, 1 - hauteurSol / 3);
+
+    this.sun.position.set(b.x + 6, b.y + 14, b.z - 6);
+    this.sun.target.position.set(b.x, b.y, b.z);
     this.sun.target.updateMatrixWorld();
   }
 
+  /**
+   * La caméra suit la piste, elle ne regarde plus droit devant.
+   *
+   * Elle se place en arrière **le long de la courbe** et vise un point situé
+   * plus loin sur cette même courbe. C'est ce qui fait qu'un virage se voit
+   * arriver : une caméra fixée sur un axe droit sortirait de la piste dès la
+   * première courbe et cadrerait le vide.
+   *
+   * La hauteur est lissée alors que la position le long de la piste ne l'est
+   * pas : le défilement doit rester rigoureusement calé sur la musique, mais
+   * une pente prise sans amortissement donnerait un tangage désagréable.
+   */
   updateCamera(player, shake = 0) {
     const cam = this.camera;
     const back = this.cameraBack || 9.5;
-    cam.position.x += (player.x * 0.42 - cam.position.x) * 0.18;
-    cam.position.y += (5.5 + player.y * 0.45 - cam.position.y) * 0.14;
-    cam.position.z = player.z - back;
+    const ligne = player.z / TILE;
+    const arriere = this.courbe.monde(ligne - back / TILE, player.x * 0.42, 0);
+    const vise = this.courbe.monde(ligne + (back * 1.15) / TILE, player.x * 0.55, 1.2);
+
+    cam.position.x += (arriere.x - cam.position.x) * 0.35;
+    cam.position.z += (arriere.z - cam.position.z) * 0.35;
+    const hauteur = arriere.y + 5.5 + player.y * 0.45;
+    cam.position.y += (hauteur - cam.position.y) * 0.14;
     if (shake > 0) {
       cam.position.x += Math.sin(shake * 47) * shake * 0.4;
       cam.position.y += Math.cos(shake * 61) * shake * 0.3;
     }
-    cam.lookAt(player.x * 0.55, 1.2, player.z + back * 1.15);
+    cam.lookAt(vise.x, vise.y, vise.z);
   }
 
   resize(width, height) {

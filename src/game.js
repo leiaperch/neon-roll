@@ -254,7 +254,7 @@ export class Game {
 
     // Faisceaux : toute la hauteur, un saut ne sauve pas.
     for (const l of this.world.lasers) {
-      if (Math.abs(p.z - l.z) > LASER_HALF_Z) continue;
+      if (Math.abs(p.z - l.row * TILE) > LASER_HALF_Z) continue;
       const gauche = laserBank(l.row, rowsPerBeat) === 'gauche';
       if (gauche ? p.x < -LASER_FREE_X : p.x > LASER_FREE_X) return this._die('laser');
     }
@@ -262,7 +262,7 @@ export class Game {
     for (let i = 0; i < this.world.diamonds.length; i++) {
       const d = this.world.diamonds[i];
       if (d.taken) continue;
-      if (Math.abs(d.z - p.z) < PICKUP_RADIUS && Math.abs(d.x - p.x) < PICKUP_RADIUS) {
+      if (Math.abs(d.row * TILE - p.z) < PICKUP_RADIUS && Math.abs(d.x - p.x) < PICKUP_RADIUS) {
         d.taken = true;
         this.diamonds++;
         this.synth.ramassage(this.diamonds);
@@ -270,7 +270,7 @@ export class Game {
     }
     for (const c of this.world.crowns) {
       if (c.taken) continue;
-      if (Math.abs(c.z - p.z) < CROWN_PICKUP_RADIUS && Math.abs(c.x - p.x) < CROWN_PICKUP_RADIUS) {
+      if (Math.abs(c.row * TILE - p.z) < CROWN_PICKUP_RADIUS && Math.abs(c.x - p.x) < CROWN_PICKUP_RADIUS) {
         c.taken = true;
         this.crowns++;
         this.synth.fanfare();
