@@ -71,7 +71,7 @@ export default piste({
     ball: 0xffffff,
   },
 
-  sections: sectionsEDM({ variante: 'roue', respiration: 'spinner', dur: 'presse' }),
+  sections: sectionsEDM({ variante: 'roue', respiration: 'spinner', dur: 'scie' }),
 
   /** Arceaux rapprochés : à cette vitesse, ils donnent la sensation d'élan. */
   decor(stage) {

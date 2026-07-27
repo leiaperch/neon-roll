@@ -27,6 +27,14 @@ export const MARTEAU = 'H'; // bras qui balaie à l'horizontale depuis un côté
 export const PRESSE = 'V'; // masse qui s'abat verticalement sur trois colonnes
 export const ROUE = 'O'; // roues qui traversent en groupe, décalées
 export const SPINNER = 'S'; // croix qui tourne en continu au milieu de la piste
+/**
+ * Scie : elle remonte la piste dans sa voie et atteint sa ligne au moment
+ * précis où la bille y arrive. Elle se voit donc comme un mobile qui fonce sur
+ * vous, mais elle se raisonne comme une case mortelle à un endroit connu.
+ * C'est volontaire : les obstacles dont l'état ne se déduit pas de la grille
+ * sont ceux qui ont fait diverger le validateur, le rendu et la collision.
+ */
+export const SCIE = 'Z';
 
 export const JUMP_ROWS = 5; // doit rester aligné sur config.js
 
@@ -34,7 +42,7 @@ export const JUMP_ROWS = 5; // doit rester aligné sur config.js
 export const SOLID = new Set([
   FLOOR, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT,
   SWEEPER, SLIDER, LASER, RISER, BELT_R, BELT_L,
-  MARTEAU, PRESSE, ROUE, SPINNER,
+  MARTEAU, PRESSE, ROUE, SPINNER, SCIE,
 ]);
 
 export const ALL_CELLS = new Set([...SOLID, VOID, PLATFORM]);
@@ -107,6 +115,9 @@ export function isLethal(cell, row, col, rowsPerBeat) {
   // traversait le moyeu, l'évitement le décalait, et ce décalage entrait en
   // conflit avec la porte suivante.
   if (cell === SPINNER) return true;
+  // La scie est sur sa ligne à l'instant du passage : elle se traite donc
+  // comme un bloc, et le validateur la voit sans rien avoir à apprendre.
+  if (cell === SCIE) return true;
   // Le marteau et les roues, eux, restent des mobiles : leur côté sûr est
   // calculé par le générateur, qui y place la porte.
   return false;

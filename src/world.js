@@ -6,7 +6,7 @@ import {
 import { Courbe } from './courbe.js';
 import {
   VOID, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT, SWEEPER, SLIDER,
-  LASER, RISER, BELT_R, BELT_L, PLATFORM, MARTEAU, PRESSE, ROUE, SPINNER,
+  LASER, RISER, BELT_R, BELT_L, PLATFORM, MARTEAU, PRESSE, ROUE, SPINNER, SCIE,
   laserBank, riserUp, presseBasse, sensBalayage,
 } from './levelkit.js';
 
@@ -34,6 +34,15 @@ const SPINNER_PERIOD_BEATS = 10;
  * les deux voisines restent libres, et un refuge est toujours à une colonne.
  */
 const SPINNER_ANGLE_PASSAGE = Math.PI / 2;
+const SCIE_RAYON = 0.95;
+/**
+ * Vitesse de la scie, en multiples de celle de la bille. À 1,6 elle remonte
+ * assez vite pour qu'on la voie fondre sur soi, et elle est passée bien avant
+ * la ligne suivante, ce qui évite qu'elle menace deux portes à la fois.
+ */
+const SCIE_VITESSE = 1.6;
+/** Distance d'apparition, en lignes : au-delà, elle est hors du brouillard. */
+const SCIE_PORTEE = 14;
 
 export const colX = (col) => (col - (COLS - 1) / 2) * TILE;
 
@@ -408,6 +417,7 @@ export class World {
     this.movers = [];
     this.risers = [];
     this.presses = [];
+    this.scies = [];
     this.lasers = [];
 
     const mobileMat = () => new THREE.MeshStandardMaterial({
@@ -539,6 +549,28 @@ export class World {
               period: (SWEEPER_PERIOD_BEATS + k) * beat, x: 0,
             });
           }
+        } else if (ch === SCIE) {
+          // Lame verticale dans sa voie, axe perpendiculaire à la piste : elle
+          // roule vers le joueur au lieu de l'attendre.
+          // Deux niveaux : le groupe extérieur porte la position et le cap de
+          // la piste, le groupe intérieur porte la rotation de la lame. Les
+          // mélanger ferait vriller la scie dans les virages.
+          const groupe = new THREE.Group();
+          const lame = new THREE.Group();
+          const disque = new THREE.Mesh(
+            new THREE.CylinderGeometry(SCIE_RAYON, SCIE_RAYON, 0.28, 18), mobileMat());
+          disque.rotation.z = Math.PI / 2; // couché : l'axe pointe sur le côté
+          lame.add(disque);
+          for (let d = 0; d < 10; d++) {
+            const angle = (d / 10) * Math.PI * 2;
+            const dent = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.44, 0.44), mobileMat());
+            dent.position.set(0, Math.cos(angle) * SCIE_RAYON, Math.sin(angle) * SCIE_RAYON);
+            dent.rotation.x = -angle;
+            lame.add(dent);
+          }
+          groupe.add(lame);
+          this.trackGroup.add(groupe);
+          this.scies.push({ row, col, x: colX(col), groupe, lame });
         } else if (ch === PRESSE) {
           this.presses.push({ row, col, x: colX(col) });
         } else if (ch === RISER) {
@@ -722,6 +754,22 @@ export class World {
         continue;
       }
       if (m.roulante) m.mesh.rotation.z = -m.x / 0.85;
+    }
+
+    // Scies : elles remontent leur voie et touchent leur ligne à l'instant
+    // exact où la bille y arrive. Leur position se déduit donc du temps
+    // restant avant ce rendez-vous, ce qui rend l'affichage et la collision
+    // rigoureusement solidaires sans code de collision supplémentaire.
+    for (const s of this.scies) {
+      const avance = (s.row * this.rowDuration - t) / this.rowDuration;
+      const ligne = s.row + avance * SCIE_VITESSE;
+      const visible = avance > -2 && avance < SCIE_PORTEE;
+      s.groupe.visible = visible;
+      if (!visible) continue;
+      const w = this.courbe.monde(ligne, s.x, SCIE_RAYON * 0.92);
+      s.groupe.position.set(w.x, w.y, w.z);
+      s.groupe.rotation.y = w.cap;
+      s.lame.rotation.x = -t * 9;
     }
 
     if (this.presseMesh) {

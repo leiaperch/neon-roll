@@ -70,7 +70,7 @@ export default piste({
     ball: 0xffffff,
   },
 
-  sections: sectionsEDM({ variante: 'marteau', respiration: 'roue', dur: 'presse' }),
+  sections: sectionsEDM({ variante: 'marteau', respiration: 'roue', dur: 'scie' }),
 
   /** Ponts roulants et caisses empilées, très près de la piste. */
   decor(stage) {

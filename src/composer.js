@@ -1,7 +1,7 @@
 import {
   VOID, FLOOR, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT,
   SWEEPER, LASER, RISER, BELT_R, BELT_L,
-  MARTEAU, PRESSE, ROUE, SPINNER, sensBalayage,
+  MARTEAU, PRESSE, ROUE, SPINNER, SCIE, sensBalayage,
 } from './levelkit.js';
 
 /**
@@ -148,6 +148,7 @@ export function composeFromMusic(track) {
           if (section.mode === 'trou') ligne[c] = VOID;
           else if (section.mode === 'piston') ligne[c] = RISER;
           else if (section.mode === 'presse') ligne[c] = PRESSE;
+          else if (section.mode === 'scie') ligne[c] = SCIE;
           else ligne[c] = BLOCK;
         }
         // Le faisceau barre une moitié entière : il ne se pose pas colonne
