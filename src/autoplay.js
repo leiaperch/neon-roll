@@ -58,6 +58,56 @@ export function coherence(world, track) {
   return ecarts;
 }
 
+/**
+ * Audit de difficulté.
+ *
+ * Le validateur prouve qu'un chemin existe et le pilote prouve qu'une machine
+ * le parcourt ; ni l'un ni l'autre ne dit qu'un humain le peut. Cet audit
+ * mesure ce qu'on exige réellement du joueur : la vitesse latérale imposée
+ * entre deux obstacles, et le nombre d'esquives par seconde.
+ *
+ * Le seuil de vitesse est volontairement bien sous le plafond de la bille :
+ * atteindre le plafond signifie qu'il faut un geste parfait, sans marge.
+ */
+export function audit(track, plafond = 26) {
+  const rd = rowDuration(track.bpm, track.rowsPerBeat);
+  const chemin = findPath(track);
+  if (!chemin) return { piste: track.id, erreur: 'aucun chemin' };
+  const ZONE = 0.32;
+
+  const dures = [];
+  for (let r = 0; r < track.totalRows; r++) {
+    const ligne = track.rows[r];
+    const laser = ligne.includes('L');
+    const bloc = [...ligne].some((c) => c === 'X')
+      || (ligne.includes('B') && Math.floor(r / track.rowsPerBeat) % 2 === 1);
+    const trou = [...ligne].filter((c) => c === '.').length > 2 && !ligne.includes('P');
+    if (laser || bloc || trou) dures.push(r);
+  }
+
+  const excessifs = [];
+  let pire = 0;
+  for (let i = 1; i < dures.length; i++) {
+    const a = dures[i - 1];
+    const b = dures[i];
+    const ca = Math.round(chemin[a]);
+    const cb = Math.round(chemin[b]);
+    if (ca === cb) continue;
+    const temps = (b - a - 2 * ZONE) * rd;
+    const vitesse = temps <= 0 ? Infinity : (Math.abs(cb - ca) * TILE) / temps;
+    if (vitesse > pire) pire = vitesse;
+    if (vitesse > plafond) {
+      excessifs.push(`lignes ${a}→${b} (${Math.round((b / track.totalRows) * 100)} %) : ${Math.round(vitesse)} u/s`);
+    }
+  }
+  return {
+    piste: track.id,
+    pireVitesse: Math.round(pire),
+    plafond,
+    passagesExcessifs: excessifs,
+  };
+}
+
 /** Chemin colonne par colonne, en préférant le centre. */
 export function findPath(track) {
   const { grid, totalRows: N } = track;

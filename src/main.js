@@ -105,6 +105,12 @@ window.__sillon = {
     return rapport;
   },
 
+  /** Mesure ce que chaque piste exige réellement d'un joueur. */
+  async audit() {
+    const { audit } = await import('./autoplay.js');
+    return TRACKS.map((t) => audit(t));
+  },
+
   /** Vérifie que ce qui est affiché correspond à ce qui tue. */
   async coherence() {
     const { coherence } = await import('./autoplay.js');

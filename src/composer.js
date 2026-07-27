@@ -38,13 +38,18 @@ const bords = (largeur) => {
  * reste autorisée quand le tempo le permet, parce que c'est elle qui donne la
  * sensation de « boum boum », mais elle est suivie d'un repos.
  */
-function filtreHumain(attaques, minEcart, paireAutorisee, reposApresPaire) {
+function filtreHumain(attaques, minEcart, paireAutorisee, reposApresPaire, largeurPorte) {
   const portes = [];
   let precedent = -99;
   let taillePaire = 0;
   for (const row of attaques) {
     const ecart = row - precedent;
-    const collee = ecart === 1 && paireAutorisee && taillePaire < 2;
+    // Une porte d'une seule colonne demande de viser juste, pas seulement
+    // d'aller vite. La coller à la précédente cumule vitesse et précision et
+    // rend le passage infaisable : chacune des deux contraintes est tenable,
+    // leur produit ne l'est pas.
+    const etroite = largeurPorte(row) === 0 || largeurPorte(precedent) === 0;
+    const collee = ecart === 1 && paireAutorisee && taillePaire < 2 && !etroite;
     const requis = taillePaire >= 2 ? reposApresPaire : minEcart;
     if (!collee && ecart < requis) continue;
     taillePaire = collee ? taillePaire + 1 : 1;
@@ -67,9 +72,11 @@ export function composeFromMusic(track) {
   // c'est le rythme qu'un joueur soutient. La paire collée n'est tolérée que
   // si une ligne dure déjà presque autant.
   const minEcart = Math.max(1, Math.ceil(0.25 / dureeLigne));
-  // La paire collée est ce qui donne le « boum boum » : on l'ouvre à toutes
-  // les pistes où une croche laisse encore le temps de traverser.
-  const paireAutorisee = dureeLigne >= 0.2;
+  // La paire collée est ce qui donne le « boum boum », mais elle ne laisse
+  // qu'une fraction de ligne pour traverser. Le seuil est calé sur l'audit :
+  // en dessous, la vitesse latérale exigée dépasse ce qu'on peut demander
+  // avec de la marge.
+  const paireAutorisee = dureeLigne >= 0.215;
   const reposApresPaire = Math.max(minEcart, Math.ceil(0.45 / dureeLigne));
 
   // Les attaques sont filtrées sur toute la piste et non mesure par mesure :
@@ -79,7 +86,12 @@ export function composeFromMusic(track) {
   for (let bar = 0; bar < bars; bar++) {
     for (const pas of track.accents(bar)) attaques.push(bar * 8 + pas);
   }
-  const portes = new Set(filtreHumain(attaques, minEcart, paireAutorisee, reposApresPaire));
+  const largeurPorte = (row) => {
+    const s = sectionDe(sections, Math.floor(row / 8));
+    return s.porte === undefined ? 1 : s.porte;
+  };
+  const portes = new Set(
+    filtreHumain(attaques, minEcart, paireAutorisee, reposApresPaire, largeurPorte));
 
   const rows = [];
   let colonne = 3;
