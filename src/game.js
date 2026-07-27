@@ -4,8 +4,8 @@ import {
   PICKUP_RADIUS, CROWN_PICKUP_RADIUS, rowDuration,
 } from './config.js';
 import {
-  BLOCK, JUMP, CHECKPOINT, LASER, RISER, BELT_R, BELT_L,
-  laserBank, riserUp, checkpointRows,
+  BLOCK, JUMP, CHECKPOINT, LASER, RISER, PRESSE, BELT_R, BELT_L,
+  laserBank, riserUp, presseBasse, checkpointRows,
 } from './levelkit.js';
 import { colX } from './world.js';
 
@@ -38,6 +38,7 @@ export const CAUSES = {
   obstacle: 'Fauchée par un obstacle',
   laser: 'Coupée par un faisceau',
   piston: 'Écrasée par un piston',
+  presse: 'Aplatie par la presse',
 };
 
 export class Game {
@@ -241,6 +242,7 @@ export class Game {
           // Le piston est évalué à l'heure d'arrivée sur sa ligne, comme le
           // fait le validateur : ce que la carte promet est ce qui se produit.
           if (ch === RISER && riserUp(r, rowsPerBeat)) return this._die('piston');
+          if (ch === PRESSE && presseBasse(r, rowsPerBeat)) return this._die('presse');
         }
       }
       for (const m of this.world.movers) {

@@ -168,8 +168,13 @@ function eviterMobiles(chemin, track, world, rd) {
   // Un obstacle mobile est large en profondeur : il menace aussi les lignes
   // voisines, pas seulement la sienne. Ne regarder que sa propre ligne laisse
   // passer des trajectoires qui le percutent juste avant ou juste après.
-  const barre = (row, x) => world.movers.some((m) => !m.solid && Math.abs(m.row - row) <= 1
-    && Math.abs(x - world.moverX(m, row * rd)) < m.halfW + 0.9);
+  // On interroge l'emprise réelle du mobile, largeur comprise : un marteau
+  // couvre une bande dont la taille varie avec l'angle du bras.
+  const barre = (row, x) => world.movers.some((m) => {
+    if (m.solid || Math.abs(m.row - row) > 1) return false;
+    const e = world.moverEmprise(m, row * rd);
+    return Math.abs(x - e.x) < e.halfW + 0.9;
+  });
   for (let r = 0; r < chemin.length; r++) {
     const c = Math.round(chemin[r]);
     if (!barre(r, colX(c))) continue;

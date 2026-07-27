@@ -1,6 +1,6 @@
 import {
   VOID, FLOOR, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT,
-  SWEEPER, LASER, RISER, BELT_R, BELT_L, sensBalayage,
+  SWEEPER, LASER, RISER, BELT_R, BELT_L, MARTEAU, PRESSE, ROUE, sensBalayage,
 } from './levelkit.js';
 
 /**
@@ -146,6 +146,7 @@ export function composeFromMusic(track) {
           if (Math.abs(c - cible) <= porte) continue;
           if (section.mode === 'trou') ligne[c] = VOID;
           else if (section.mode === 'piston') ligne[c] = RISER;
+          else if (section.mode === 'presse') ligne[c] = PRESSE;
           else ligne[c] = BLOCK;
         }
         // Le faisceau barre une moitié entière : il ne se pose pas colonne
@@ -157,13 +158,21 @@ export function composeFromMusic(track) {
           for (let c = min; c <= max; c++) ligne[c] = LASER;
           colonne = 3;
         }
-        if (section.mode === 'balayeuse' && pas === premierePorte) {
-          for (let c = min; c <= max; c++) ligne[c] = FLOOR;
-          ligne[3] = SWEEPER;
-          // La barre couvre une moitié de piste au moment du passage : la
-          // porte doit se trouver de l'autre côté, sinon le niveau demande
-          // d'être exactement là où la barre arrive.
-          cible = sensBalayage(bar * 8 + pas) > 0 ? min + 1 : max - 1;
+        // Barre, marteau et roues partagent la même logique : un mobile posé
+        // sur la ligne, et la porte placée du côté qu'il ne couvre pas.
+        const mobiles = { balayeuse: SWEEPER, marteau: MARTEAU, roue: ROUE };
+        if (mobiles[section.mode] && pas === premierePorte) {
+          // Le mobile couvre une moitié de piste au moment du passage, donc la
+          // porte doit être de l'autre côté. Mais on ne l'y téléporte pas : si
+          // la voie est trop loin, le niveau exigerait de traverser plusieurs
+          // colonnes en une ligne, ce qui est impossible quelle que soit la
+          // vitesse. Dans ce cas on renonce au mobile et on pose des blocs.
+          const refuge = sensBalayage(bar * 8 + pas) > 0 ? min + 1 : max - 1;
+          if (Math.abs(refuge - colonne) <= 1) {
+            for (let c = min; c <= max; c++) ligne[c] = FLOOR;
+            ligne[3] = mobiles[section.mode];
+            cible = refuge;
+          }
         }
         colonne = cible;
 

@@ -5,7 +5,8 @@ import {
 } from './config.js';
 import {
   VOID, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT, SWEEPER, SLIDER,
-  LASER, RISER, BELT_R, BELT_L, PLATFORM, laserBank, riserUp, sensBalayage,
+  LASER, RISER, BELT_R, BELT_L, PLATFORM, MARTEAU, PRESSE, ROUE,
+  laserBank, riserUp, presseBasse, sensBalayage,
 } from './levelkit.js';
 
 const SWEEPER_PERIOD_BEATS = 6;
@@ -338,6 +339,7 @@ export class World {
     const beat = 60 / bpm;
     this.movers = [];
     this.risers = [];
+    this.presses = [];
     this.lasers = [];
 
     const mobileMat = () => new THREE.MeshStandardMaterial({
@@ -387,6 +389,58 @@ export class World {
             amplitude: PLATFORM_AMPLITUDE, period: PLATFORM_PERIOD_BEATS * beat,
             x: 0,
           });
+        } else if (ch === MARTEAU) {
+          // Bras qui balaie à l'horizontale depuis un montant latéral. Il
+          // couvre la moitié de piste située de son côté au moment du passage,
+          // donc on esquive à l'opposé de sa course.
+          const sens = sensBalayage(row);
+          const pivotX = sens * (TRACK_HALF + 1.6);
+          const longueur = TRACK_HALF + 1.6;
+          const groupe = new THREE.Group();
+          const montant = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.45, 0.6, 3.4, 8), mobileMat());
+          montant.position.set(pivotX, 1.7, row * TILE);
+          const bras = new THREE.Mesh(
+            new THREE.BoxGeometry(longueur, 0.7, 0.7), mobileMat());
+          // Le bras est décalé pour pivoter autour du montant, pas du centre.
+          bras.position.set(-longueur / 2, 0, 0);
+          const pivot = new THREE.Group();
+          pivot.position.set(pivotX, 1.5, row * TILE);
+          pivot.add(bras);
+          const tete = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.4, 1.4), mobileMat());
+          tete.position.set(-longueur + 0.5, 0, 0);
+          pivot.add(tete);
+          groupe.add(montant, pivot);
+          this.trackGroup.add(groupe);
+          this.movers.push({
+            mesh: groupe, pivot, row, type: ch, solid: false,
+            anchorX: pivotX, sens, longueur,
+            // Profondeur bornée sous une demi-ligne, rayon de bille compris :
+            // au-delà, le bras tue depuis la ligne voisine, où rien ne
+            // l'annonce et où le joueur n'a aucune raison de l'éviter.
+            halfW: longueur / 2, halfD: TILE * 0.3,
+            period: SWEEPER_PERIOD_BEATS * beat, x: 0,
+          });
+        } else if (ch === ROUE && !platesVues.has(`O${row}`)) {
+          // Les roues arrivent en groupe, décalées : on se faufile entre elles.
+          platesVues.add(`O${row}`);
+          for (let k = 0; k < 3; k++) {
+            // L'axe est basculé dans la géométrie une fois pour toutes, ce qui
+            // laisse la rotation du maillage libre pour figurer le roulement.
+            const geo = new THREE.CylinderGeometry(0.85, 0.85, TILE * 0.7, 12);
+            geo.rotateX(Math.PI / 2);
+            const roue = new THREE.Mesh(geo, mobileMat());
+            roue.position.set(0, 0.85, row * TILE);
+            this.trackGroup.add(roue);
+            this.movers.push({
+              mesh: roue, row, type: ch, solid: false, roulante: true,
+              anchorX: 0, halfW: 0.85, halfD: TILE * 0.35,
+              amplitude: (TRACK_HALF - TILE * 0.5) * (k % 2 === 0 ? 1 : -1),
+              period: (SWEEPER_PERIOD_BEATS + k) * beat, x: 0,
+            });
+          }
+        } else if (ch === PRESSE) {
+          this.presses.push({ row, col, x: colX(col), z: row * TILE });
         } else if (ch === RISER) {
           this.risers.push({ row, col, x: colX(col), z: row * TILE });
         } else if (ch === LASER && col === 3) {
@@ -404,6 +458,22 @@ export class World {
       const puits = new Builder();
       for (const r of this.risers) puits.box(r.x, 0.06, r.z, BLOCK_SIZE * 1.15, 0.14, BLOCK_SIZE * 1.15, p.accent);
       this.trackGroup.add(new THREE.Mesh(puits.geometry(), this._materials().neon));
+    }
+
+    if (this.presses.length) {
+      // Masse suspendue à un vérin : elle s'abat d'en haut, à l'inverse du
+      // piston qui sort du sol. Les deux se répondent au lieu de battre
+      // ensemble, ce qui les garde distinguables.
+      const geo = new THREE.BoxGeometry(TILE * 0.94, 1.8, TILE * 0.9);
+      this.presseMesh = new THREE.InstancedMesh(geo, mobileMat(), this.presses.length);
+      this.presseMesh.frustumCulled = false;
+      this.trackGroup.add(this.presseMesh);
+      const rails = new Builder();
+      for (const pr of this.presses) {
+        rails.box(pr.x, 5.4, pr.z, 0.24, 3.6, 0.24, p.accent);
+        rails.box(pr.x, 7.1, pr.z, TILE * 0.98, 0.4, TILE * 0.9, p.accent);
+      }
+      this.trackGroup.add(new THREE.Mesh(rails.geometry(), this._materials().neon));
     }
 
     if (this.lasers.length) {
@@ -449,10 +519,29 @@ export class World {
     this.trackGroup.add(this.crownMesh);
   }
 
-  /** Position latérale d'un obstacle mobile à l'instant musical `t`. */
-  moverX(mover, t) {
+  /**
+   * Emprise latérale d'un obstacle mobile à l'instant musical `t`.
+   *
+   * Le marteau ne translate pas, il pivote : son emprise se déduit de l'angle
+   * du bras. Tout passe par cette fonction pour que le rendu, la collision et
+   * le pilote de vérification lisent exactement la même chose ; c'est en la
+   * contournant que le marteau devenait invisible au calcul d'évitement.
+   */
+  moverEmprise(mover, t) {
     const arrivee = mover.row * this.rowDuration;
-    return mover.anchorX + Math.cos((2 * Math.PI * (t - arrivee)) / mover.period) * mover.amplitude;
+    const phase = (2 * Math.PI * (t - arrivee)) / mover.period;
+    if (mover.type === MARTEAU) {
+      const base = mover.sens > 0 ? 0 : Math.PI;
+      const angle = base + mover.sens * (Math.PI / 2) * ((1 - Math.cos(phase)) / 2);
+      const bout = mover.anchorX - Math.cos(angle) * mover.longueur;
+      return { x: (mover.anchorX + bout) / 2, halfW: Math.abs(mover.anchorX - bout) / 2, angle };
+    }
+    return { x: mover.anchorX + Math.cos(phase) * mover.amplitude, halfW: mover.halfW };
+  }
+
+  /** Position latérale seule, conservée pour les appels existants. */
+  moverX(mover, t) {
+    return this.moverEmprise(mover, t).x;
   }
 
   /**
@@ -467,23 +556,60 @@ export class World {
    * La course se fait donc entre deux lignes, jamais autour de leur centre.
    */
   riserHeight(t) {
+    return this._etatLigne(t, riserUp);
+  }
+
+  /** Un pour la presse en bas, zéro pour la presse en haut. */
+  presseEtat(t) {
+    return this._etatLigne(t, presseBasse);
+  }
+
+  /**
+   * État affiché d'un obstacle dont la collision dépend de la ligne.
+   *
+   * On lit l'état de la ligne la plus proche, pas celui de l'horloge continue,
+   * et la course se fait entre deux lignes. Calculé sur le temps, l'obstacle
+   * tomberait à contretemps et tuerait en paraissant inoffensif.
+   */
+  _etatLigne(t, regle) {
     const rowF = t / this.rowDuration;
     const row = Math.round(rowF);
     const rpb = this.track.rowsPerBeat;
-    const ici = riserUp(row, rpb) ? 1 : 0;
+    const ici = regle(row, rpb) ? 1 : 0;
     const ecart = rowF - row;
     if (Math.abs(ecart) < 0.35) return ici;
-    const voisine = riserUp(row + Math.sign(ecart), rpb) ? 1 : 0;
-    const avance = (Math.abs(ecart) - 0.35) / 0.15;
-    return ici + (voisine - ici) * Math.min(1, avance);
+    const voisine = regle(row + Math.sign(ecart), rpb) ? 1 : 0;
+    return ici + (voisine - ici) * Math.min(1, (Math.abs(ecart) - 0.35) / 0.15);
   }
 
   update(t, player) {
     const d = this._dummy;
 
     for (const m of this.movers) {
-      m.x = this.moverX(m, t);
+      const emprise = this.moverEmprise(m, t);
+      m.x = emprise.x;
+      if (m.type === MARTEAU) {
+        // Le bras est en travers de la piste au moment du passage, et s'efface
+        // entre deux : on esquive du côté opposé à sa course.
+        m.pivot.rotation.y = emprise.angle;
+        m.halfW = emprise.halfW;
+        continue;
+      }
       m.mesh.position.x = m.x;
+      if (m.roulante) m.mesh.rotation.z = -m.x / 0.85;
+    }
+
+    if (this.presseMesh) {
+      for (let i = 0; i < this.presses.length; i++) {
+        const pr = this.presses[i];
+        const bas = this.presseEtat(t, pr.row);
+        d.position.set(pr.x, 0.95 + (1 - bas) * 3.4, pr.z);
+        d.rotation.set(0, 0, 0);
+        d.scale.setScalar(1);
+        d.updateMatrix();
+        this.presseMesh.setMatrixAt(i, d.matrix);
+      }
+      this.presseMesh.instanceMatrix.needsUpdate = true;
     }
 
     if (this.riserMesh) {

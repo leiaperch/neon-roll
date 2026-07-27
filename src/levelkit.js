@@ -23,6 +23,9 @@ export const RISER = 'B';
 export const BELT_R = '>';
 export const BELT_L = '<';
 export const PLATFORM = 'P';
+export const MARTEAU = 'H'; // bras qui balaie à l'horizontale depuis un côté
+export const PRESSE = 'V'; // masse qui s'abat verticalement sur trois colonnes
+export const ROUE = 'O'; // roues qui traversent en groupe, décalées
 
 export const JUMP_ROWS = 5; // doit rester aligné sur config.js
 
@@ -30,6 +33,7 @@ export const JUMP_ROWS = 5; // doit rester aligné sur config.js
 export const SOLID = new Set([
   FLOOR, BLOCK, DIAMOND, CROWN, JUMP, CHECKPOINT,
   SWEEPER, SLIDER, LASER, RISER, BELT_R, BELT_L,
+  MARTEAU, PRESSE, ROUE,
 ]);
 
 export const ALL_CELLS = new Set([...SOLID, VOID, PLATFORM]);
@@ -76,6 +80,15 @@ export function laserBlocks(row, rowsPerBeat, col) {
  */
 export const sensBalayage = (row) => (Math.floor(row / 2) % 2 === 0 ? 1 : -1);
 
+/**
+ * La presse est en bas sur la parité inverse du piston : les deux obstacles
+ * se répondent au lieu de battre ensemble, ce qui les rend distinguables
+ * quand une piste utilise les deux.
+ */
+export function presseBasse(row, rowsPerBeat) {
+  return Math.floor(row / rowsPerBeat) % 2 === 0;
+}
+
 /** Le bloc surgissant est sorti un temps sur deux. */
 export function riserUp(row, rowsPerBeat) {
   return Math.floor(row / rowsPerBeat) % 2 === 1;
@@ -86,6 +99,9 @@ export function isLethal(cell, row, col, rowsPerBeat) {
   if (cell === BLOCK) return true;
   if (cell === LASER) return laserBlocks(row, rowsPerBeat, col);
   if (cell === RISER) return riserUp(row, rowsPerBeat);
+  if (cell === PRESSE) return presseBasse(row, rowsPerBeat);
+  // Le marteau et les roues sont des mobiles : leur côté sûr est calculé par
+  // le générateur, qui y place la porte. Ils portent donc, comme la barre.
   return false;
 }
 
