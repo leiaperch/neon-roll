@@ -320,8 +320,10 @@ export class World {
           neon.box(centre, BLOCK_HEIGHT + 0.06, z, largeur * 0.94, 0.14, BLOCK_SIZE * 0.55, p.accent);
           // Montants aux extrémités : ils marquent le bord de l'ouverture.
           for (const bout of [debut, col - 1]) {
+            // Les montants dépassent la barrière en hauteur : leur centre doit
+            // monter d'autant, sinon ils s'enfoncent d'autant sous le sol.
             solide.box(colX(bout) + (bout === debut ? -1 : 1) * (BLOCK_SIZE * 0.42),
-              BLOCK_HEIGHT / 2, z, 0.22, BLOCK_HEIGHT * 1.12, BLOCK_SIZE * 0.9, p.accent);
+              (BLOCK_HEIGHT * 1.12) / 2, z, 0.22, BLOCK_HEIGHT * 1.12, BLOCK_SIZE * 0.9, p.accent);
           }
           debut = -1;
         }
@@ -444,7 +446,7 @@ export class World {
           // générateur de carte doit pouvoir calculer le côté sûr lui aussi.
           const sens = sensBalayage(row);
           this.movers.push({
-            mesh, row, type: ch, solid: false,
+            mesh, row, type: ch, hauteur: BLOCK_HEIGHT / 2, solid: false,
             anchorX: colX(col), halfW: largeur / 2, halfD: profondeur / 2,
             amplitude: (balayeuse ? TRACK_HALF - TILE : TILE) * sens,
             period: (balayeuse ? SWEEPER_PERIOD_BEATS : SLIDER_PERIOD_BEATS) * beat,
@@ -464,7 +466,7 @@ export class World {
           mesh.position.set(0, -0.3, 0);
           this.trackGroup.add(mesh);
           this.movers.push({
-            mesh, row, rowEnd: fin, type: ch, solid: true,
+            mesh, row, rowEnd: fin, type: ch, hauteur: -0.3, solid: true,
             anchorX: colX(col), halfW: PLATFORM_HALF, halfD: longueur / 2,
             amplitude: PLATFORM_AMPLITUDE, period: PLATFORM_PERIOD_BEATS * beat,
             x: 0,
@@ -493,7 +495,7 @@ export class World {
           groupe.add(montant, pivot);
           this.trackGroup.add(groupe);
           this.movers.push({
-            mesh: groupe, pivot, row, type: ch, solid: false,
+            mesh: groupe, pivot, row, type: ch, hauteur: 0, solid: false,
             anchorX: pivotX, sens, longueur,
             // Profondeur bornée sous une demi-ligne, rayon de bille compris :
             // au-delà, le bras tue depuis la ligne voisine, où rien ne
@@ -519,11 +521,13 @@ export class World {
           }
           const moyeu = new THREE.Mesh(
             new THREE.CylinderGeometry(0.7, 0.9, 2.2, 10), mobileMat());
-          moyeu.position.y = -0.3;
+          // Le groupe est à 1,1 et le moyeu mesure 2,2 : centré sur le groupe,
+          // sa base affleure le sol au lieu de s'y enfoncer de 0,3.
+          moyeu.position.y = 0;
           groupe.add(moyeu);
           this.trackGroup.add(groupe);
           this.movers.push({
-            mesh: groupe, row, type: ch, solid: false,
+            mesh: groupe, row, type: ch, hauteur: 1.1, solid: false,
             anchorX: colX(col), longueur: SPINNER_LONGUEUR,
             // La barre est fine en profondeur, sa collision doit l'être aussi.
             // À 0,3 la zone atteignait presque une demi-ligne de part et
@@ -545,7 +549,7 @@ export class World {
             roue.position.set(0, 0.85, 0);
             this.trackGroup.add(roue);
             this.movers.push({
-              mesh: roue, row, type: ch, solid: false, roulante: true,
+              mesh: roue, row, type: ch, hauteur: 0.85, solid: false, roulante: true,
               anchorX: 0, halfW: 0.85, halfD: TILE * 0.35,
               amplitude: (TRACK_HALF - TILE * 0.5) * (k % 2 === 0 ? 1 : -1),
               period: (SWEEPER_PERIOD_BEATS + k) * beat, x: 0,
@@ -787,7 +791,7 @@ export class World {
       // dans le repère de la piste, comme la collision.
       const ligne = m.rowEnd === undefined ? m.row : (m.row + m.rowEnd) / 2;
       const ancre = m.type === SPINNER || m.type === MARTEAU ? 0 : m.x;
-      const w = this.courbe.monde(ligne, ancre, 0);
+      const w = this.courbe.monde(ligne, ancre, m.hauteur || 0);
       m.mesh.position.set(w.x, w.y, w.z);
       m.mesh.rotation.y = w.cap;
 
@@ -816,7 +820,9 @@ export class World {
       const visible = avance > -2 && avance < SCIE_PORTEE;
       s.groupe.visible = visible;
       if (!visible) continue;
-      const w = this.courbe.monde(ligne, s.x, SCIE_RAYON * 0.92);
+      // Un poil au-dessus du rayon : les dents effleurent le sol au lieu de le
+      // traverser.
+      const w = this.courbe.monde(ligne, s.x, SCIE_RAYON * 1.04);
       s.groupe.position.set(w.x, w.y, w.z);
       s.groupe.rotation.y = w.cap;
       s.lame.rotation.x = -t * 9;
