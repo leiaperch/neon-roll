@@ -89,7 +89,7 @@ export default piste({
     ball: 0xffffff,
   },
 
-  sections: sectionsEDM({ variante: 'canon', respiration: 'calme', dur: 'bloc' }),
+  sections: sectionsEDM({ variante: 'canon', respiration: 'tapis', dur: 'bloc' }),
 
   /** Portiques de scène et projecteurs, en enfilade. */
   decor(stage) {

@@ -77,7 +77,7 @@ export default piste({
     ball: 0xffffff,
   },
 
-  sections: sectionsEDM({ variante: 'piston', respiration: 'calme', dur: 'faisceau' }),
+  sections: sectionsEDM({ variante: 'piston', respiration: 'roue', dur: 'faisceau' }),
 
   decor(stage) {
     const { rows, box, neon, colX, TILE } = stage;

@@ -39,7 +39,7 @@ const bords = (largeur) => {
  * reste autorisée quand le tempo le permet, parce que c'est elle qui donne la
  * sensation de « boum boum », mais elle est suivie d'un repos.
  */
-function filtreHumain(attaques, minEcart, paireAutorisee, reposApresPaire, largeurPorte) {
+function filtreHumain(attaques, minEcart, paireAutorisee, reposApresPaire, largeurPorte, cadence) {
   const portes = [];
   let precedent = -99;
   let taillePaire = 0;
@@ -51,7 +51,11 @@ function filtreHumain(attaques, minEcart, paireAutorisee, reposApresPaire, large
     // leur produit ne l'est pas.
     const etroite = largeurPorte(row) === 0 || largeurPorte(precedent) === 0;
     const collee = ecart === 1 && paireAutorisee && taillePaire < 2 && !etroite;
-    const requis = taillePaire >= 2 ? reposApresPaire : minEcart;
+    // Le minimum protège le joueur, la cadence règle la difficulté. Sans
+    // cadence, toute attaque qui passe le minimum devient une porte : les
+    // passages denses du lead produisent des murs et ses passages aérés des
+    // trous, d'où une courbe en dents de scie.
+    const requis = taillePaire >= 2 ? reposApresPaire : Math.max(minEcart, cadence(row));
     if (!collee && ecart < requis) continue;
     taillePaire = collee ? taillePaire + 1 : 1;
     portes.push(row);
@@ -91,8 +95,22 @@ export function composeFromMusic(track) {
     const s = sectionDe(sections, Math.floor(row / 8));
     return s.porte === undefined ? 1 : s.porte;
   };
+  /**
+   * Cadence visée, en lignes entre deux portes.
+   *
+   * Elle se resserre régulièrement du début à la fin de la piste : le joueur
+   * doit sentir que ça monte, pas subir des murs suivis de vide. Exprimée en
+   * secondes puis convertie, elle vaut donc la même chose sur une piste lente
+   * et sur une rapide.
+   */
+  const cadence = (row) => {
+    const avancement = row / (bars * 8);
+    const secondes = 0.95 + (0.6 - 0.95) * avancement;
+    return Math.round(secondes / dureeLigne);
+  };
+
   const portes = new Set(
-    filtreHumain(attaques, minEcart, paireAutorisee, reposApresPaire, largeurPorte));
+    filtreHumain(attaques, minEcart, paireAutorisee, reposApresPaire, largeurPorte, cadence));
 
   const rows = [];
   let colonne = 3;
@@ -154,8 +172,14 @@ export function composeFromMusic(track) {
         // Le décalage reste borné à une colonne : la bille ne s'arrête jamais,
         // une voie ouverte hors de portée serait une mort et non un rythme.
         if (section.mode === 'canon') {
+          // Le cycle choisit le sens, jamais l'immobilité : une porte qui
+          // s'ouvre là où le joueur se trouve déjà est un mur gratuit, et
+          // c'est ce qui creusait les temps morts.
           const temps = Math.floor((bar * 8 + pas) / track.rowsPerBeat) % 3;
-          cible = Math.max(min, Math.min(max, colonne + [0, 1, -1][temps]));
+          const pas1 = [1, -1, 1][temps];
+          cible = colonne + pas1;
+          if (cible < min || cible > max) cible = colonne - pas1;
+          cible = Math.max(min, Math.min(max, cible));
         }
 
         for (let c = min; c <= max; c++) {
@@ -184,7 +208,10 @@ export function composeFromMusic(track) {
         if (section.mode === 'spinner' && pas === premierePorte) {
           for (let c = min; c <= max; c++) ligne[c] = FLOOR;
           ligne[3] = SPINNER;
-          cible = colonne === 3 ? Math.min(max, colonne + 1) : colonne;
+          // Le moyeu barre le centre : on s'en écarte toujours, d'un côté ou
+          // de l'autre selon la place disponible. Rester sur place ferait de
+          // ce passage un décor.
+          cible = colonne <= 3 ? Math.min(max, colonne + 1) : Math.max(min, colonne - 1);
         }
         const mobiles = { balayeuse: SWEEPER, marteau: MARTEAU, roue: ROUE };
         if (mobiles[section.mode] && pas === premierePorte) {

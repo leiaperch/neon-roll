@@ -67,7 +67,10 @@ export function phaseDe(bar) {
  */
 export function sectionsEDM({ dur = 'bloc', variante = 'trou', respiration = 'tapis' } = {}) {
   return plan([
-    [3, { mode: 'calme', largeur: 5 }],
+    // Deux mesures d'installation, pas trois : au-delà, l'ouverture est vide
+    // assez longtemps pour qu'on la ressente comme un temps mort.
+    [2, { mode: 'calme', largeur: 5 }],
+    [1, { mode: 'bloc', largeur: 5, porte: 1 }],
     [1, { mode: 'halte' }],
     [4, { mode: 'bloc', largeur: 5, porte: 1 }],
     [4, { mode: variante, largeur: 5, porte: 1 }],

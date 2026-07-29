@@ -71,7 +71,7 @@ export default piste({
     ball: 0xffffff,
   },
 
-  sections: sectionsEDM({ variante: 'faisceau', respiration: 'calme', dur: 'scie' }),
+  sections: sectionsEDM({ variante: 'faisceau', respiration: 'spinner', dur: 'scie' }),
 
   /** Piliers massifs et rampes lumineuses, resserrés : le couloir se ferme. */
   decor(stage) {
