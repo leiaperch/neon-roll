@@ -67,9 +67,10 @@ export function phaseDe(bar) {
  */
 export function sectionsEDM({ dur = 'bloc', variante = 'trou', respiration = 'tapis' } = {}) {
   return plan([
-    // Deux mesures d'installation, pas trois : au-delà, l'ouverture est vide
-    // assez longtemps pour qu'on la ressente comme un temps mort.
-    [2, { mode: 'calme', largeur: 5 }],
+    // L'installation n'est plus vide : un spinner par mesure, qui ne barre que
+    // le centre. On a quelque chose à faire dès la première seconde, sans être
+    // puni pendant qu'on prend la main.
+    [2, { mode: 'douce', largeur: 5 }],
     [1, { mode: 'bloc', largeur: 5, porte: 1 }],
     [1, { mode: 'halte' }],
     [4, { mode: 'bloc', largeur: 5, porte: 1 }],
@@ -82,7 +83,7 @@ export function sectionsEDM({ dur = 'bloc', variante = 'trou', respiration = 'ta
     [1, { mode: 'halte' }],
     [4, { mode: dur, largeur: 5, porte: 0, couronne: true }], // porte d'une colonne
     [3, { mode: variante, largeur: 7, porte: 1, bond: 2 }],
-    [1, { mode: 'calme', largeur: 5, couronne: true }],
+    [1, { mode: 'douce', largeur: 5, couronne: true }],
   ]);
 }
 

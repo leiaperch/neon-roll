@@ -152,6 +152,28 @@ export function composeFromMusic(track) {
       // niveau, pas des obstacles.
       const repos = section.mode === 'calme' || section.mode === 'halte';
       const attaque = portes.has(bar * 8 + pas);
+
+      /**
+       * Mode doux : un seul obstacle par mesure, et le plus clément de tous.
+       *
+       * Le spinner ne barre que sa colonne centrale, les deux voies voisines
+       * restant libres. Il occupe donc sans punir, ce qui vaut mieux qu'une
+       * section vide : une piste qui ne demande rien pendant quatre secondes
+       * se ressent comme un temps mort, pas comme une respiration.
+       */
+      if (section.mode === 'douce') {
+        // Jamais dans la première mesure : la bille y démarre au centre, et le
+        // moyeu s'y poserait exactement sur elle. Il faut aussi un battement
+        // pour prendre le contrôle avant le premier obstacle.
+        if (attaque && pas === premierePorte && bar > 0) {
+          ligne[3] = SPINNER;
+          colonne = Math.max(min, Math.min(max, colonne <= 3 ? colonne + 1 : colonne - 1));
+          if (ligne[colonne] === FLOOR) ligne[colonne] = DIAMOND;
+        }
+        rows.push(ligne.join(''));
+        continue;
+      }
+
       if (attaque && !repos) {
         // La porte se déplace : c'est ce déplacement qui oblige à jouer.
         let cible = colonne + sens * bond;
